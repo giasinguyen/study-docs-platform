@@ -50,21 +50,14 @@ export default function InsightsPage() {
 
   const totalDocs = allDocs?.length ?? 0;
 
-  // Storage type distribution
+  // Storage type distribution (all files are in Supabase currently)
   const storageDistribution = useMemo(() => {
-    if (!allDocs) return [];
-    const counts: Record<string, number> = {};
-    for (const doc of allDocs) {
-      const type = doc.storage_type || 'SUPABASE';
-      counts[type] = (counts[type] || 0) + 1;
-    }
-    const labels: Record<string, string> = { SUPABASE: 'Supabase', GDRIVE: 'Google Drive', CLOUDINARY: 'Cloudinary' };
-    const colors: Record<string, string> = { SUPABASE: '#01FF80', GDRIVE: '#eab308', CLOUDINARY: '#71717a' };
-    return Object.entries(counts).map(([type, value]) => ({
-      name: labels[type] ?? type,
-      value,
-      color: colors[type] ?? '#71717a',
-    }));
+    if (!allDocs || allDocs.length === 0) return [];
+    return [{
+      name: 'Supabase',
+      value: allDocs.length,
+      color: '#01FF80',
+    }];
   }, [allDocs]);
 
   const loading = subjectLoading || docsLoading || subjectsLoading;
@@ -146,7 +139,7 @@ export default function InsightsPage() {
                   ) : !subjectData || subjectData.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Chưa có dữ liệu</div>
                   ) : (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart data={subjectData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                       <XAxis dataKey="name" tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} angle={-20} textAnchor="end" height={60} />
@@ -172,7 +165,7 @@ export default function InsightsPage() {
                   ) : storageDistribution.length === 0 ? (
                     <span className="text-sm text-muted-foreground">Chưa có dữ liệu</span>
                   ) : (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <PieChart>
                       <Pie data={storageDistribution} cx="50%" cy="50%" innerRadius={70} outerRadius={110} paddingAngle={4} dataKey="value" strokeWidth={0}>
                         {storageDistribution.map((entry, index) => (

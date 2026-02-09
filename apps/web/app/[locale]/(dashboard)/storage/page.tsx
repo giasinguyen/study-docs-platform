@@ -47,7 +47,7 @@ export default function StoragePage() {
 
   // Find large files on Supabase that could be moved to GDrive
   const largeFiles = (allDocs ?? [])
-    .filter((d) => d.storage_type === 'SUPABASE' && Number(d.file_size) > 5 * 1024 * 1024)
+    .filter((d) => Number(d.file_size) > 5 * 1024 * 1024)
     .sort((a, b) => Number(b.file_size) - Number(a.file_size))
     .slice(0, 5);
 

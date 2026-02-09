@@ -14,19 +14,21 @@ export interface DbSubject {
 
 export interface DbDocument {
   id: string;
-  title: string;
+  name: string;
   description: string | null;
   subject_id: string;
-  storage_type: 'SUPABASE' | 'CLOUDINARY' | 'GDRIVE';
-  file_url: string;
-  file_name: string;
+  file_path: string;
+  file_type: string | null;
   file_size: number;
-  mime_type: string | null;
   user_id: string;
+  is_starred: boolean;
+  is_deleted: boolean;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
   // joined
   subjects?: DbSubject;
+  subject?: DbSubject;
 }
 
 export interface DbTag {
@@ -72,7 +74,7 @@ export async function fetchDocuments(options?: {
   }
   if (options?.search) {
     query = query.or(
-      `title.ilike.%${options.search}%,description.ilike.%${options.search}%,file_name.ilike.%${options.search}%`,
+      `name.ilike.%${options.search}%,description.ilike.%${options.search}%`,
     );
   }
   if (options?.limit) {
@@ -126,15 +128,12 @@ export async function fetchDocumentsBySubject() {
   return Object.values(countMap).sort((a, b) => b.docs - a.docs);
 }
 
-/** Get storage stats (total bytes by storage_type) */
+/** Get storage stats (total bytes per provider) */
 export async function fetchStorageStats() {
-  // Try querying with storage_type first; fall back to file_size only
-  // (the column may not exist yet in the Supabase table)
-  const withType = await supabase()
+  const { data, error } = await supabase()
     .from('documents')
-    .select('storage_type, file_size');
-
-  const hasStorageType = !withType.error;
+    .select('file_size');
+  if (error) throw error;
 
   const stats: Record<string, { totalBytes: number; fileCount: number }> = {
     SUPABASE: { totalBytes: 0, fileCount: 0 },
@@ -142,23 +141,10 @@ export async function fetchStorageStats() {
     CLOUDINARY: { totalBytes: 0, fileCount: 0 },
   };
 
-  if (hasStorageType && withType.data) {
-    for (const doc of withType.data) {
-      const type = (doc as Record<string, unknown>).storage_type as string || 'SUPABASE';
-      if (!stats[type]) stats[type] = { totalBytes: 0, fileCount: 0 };
-      stats[type]!.totalBytes += Number(doc.file_size) || 0;
-      stats[type]!.fileCount++;
-    }
-  } else {
-    // Fallback: query only file_size, assume all are SUPABASE
-    const { data, error } = await supabase()
-      .from('documents')
-      .select('file_size');
-    if (error) throw error;
-    for (const doc of data ?? []) {
-      stats.SUPABASE.totalBytes += Number(doc.file_size) || 0;
-      stats.SUPABASE.fileCount++;
-    }
+  // All files are currently stored in Supabase
+  for (const doc of data ?? []) {
+    stats.SUPABASE.totalBytes += Number(doc.file_size) || 0;
+    stats.SUPABASE.fileCount++;
   }
 
   return stats;
