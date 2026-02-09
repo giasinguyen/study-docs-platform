@@ -128,10 +128,13 @@ export async function fetchDocumentsBySubject() {
 
 /** Get storage stats (total bytes by storage_type) */
 export async function fetchStorageStats() {
-  const { data, error } = await supabase()
+  // Try querying with storage_type first; fall back to file_size only
+  // (the column may not exist yet in the Supabase table)
+  const withType = await supabase()
     .from('documents')
     .select('storage_type, file_size');
-  if (error) throw error;
+
+  const hasStorageType = !withType.error;
 
   const stats: Record<string, { totalBytes: number; fileCount: number }> = {
     SUPABASE: { totalBytes: 0, fileCount: 0 },
@@ -139,11 +142,23 @@ export async function fetchStorageStats() {
     CLOUDINARY: { totalBytes: 0, fileCount: 0 },
   };
 
-  for (const doc of data ?? []) {
-    const type = doc.storage_type || 'SUPABASE';
-    if (!stats[type]) stats[type] = { totalBytes: 0, fileCount: 0 };
-    stats[type].totalBytes += Number(doc.file_size) || 0;
-    stats[type].fileCount++;
+  if (hasStorageType && withType.data) {
+    for (const doc of withType.data) {
+      const type = (doc as Record<string, unknown>).storage_type as string || 'SUPABASE';
+      if (!stats[type]) stats[type] = { totalBytes: 0, fileCount: 0 };
+      stats[type]!.totalBytes += Number(doc.file_size) || 0;
+      stats[type]!.fileCount++;
+    }
+  } else {
+    // Fallback: query only file_size, assume all are SUPABASE
+    const { data, error } = await supabase()
+      .from('documents')
+      .select('file_size');
+    if (error) throw error;
+    for (const doc of data ?? []) {
+      stats.SUPABASE.totalBytes += Number(doc.file_size) || 0;
+      stats.SUPABASE.fileCount++;
+    }
   }
 
   return stats;
