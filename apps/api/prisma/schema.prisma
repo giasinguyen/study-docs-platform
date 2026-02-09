@@ -1,0 +1,98 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User model - synced with Supabase Auth
+model User {
+  id        String     @id @default(uuid()) @db.Uuid
+  email     String     @unique
+  name      String?
+  avatarUrl String?    @map("avatar_url")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  
+  subjects  Subject[]
+  documents Document[]
+
+  @@map("users")
+}
+
+// Subject model - categories for documents
+model Subject {
+  id          String     @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  color       String?    @default("#6b7280") // Gray color by default
+  userId      String     @map("user_id") @db.Uuid
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents Document[]
+
+  @@index([userId])
+  @@map("subjects")
+}
+
+// Document model - main entity for file storage
+model Document {
+  id          String      @id @default(uuid()) @db.Uuid
+  title       String
+  description String?
+  subjectId   String      @map("subject_id") @db.Uuid
+  storageType StorageType @map("storage_type")
+  fileUrl     String      @map("file_url")
+  fileName    String      @map("file_name")
+  fileSize    BigInt      @map("file_size")
+  mimeType    String?     @map("mime_type")
+  userId      String      @map("user_id") @db.Uuid
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  tags    DocumentTag[]
+
+  @@index([userId])
+  @@index([subjectId])
+  @@index([storageType])
+  @@map("documents")
+}
+
+// Tag model - for organizing documents
+model Tag {
+  id        String        @id @default(uuid()) @db.Uuid
+  name      String        @unique
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  documents DocumentTag[]
+
+  @@map("tags")
+}
+
+// Junction table for Document-Tag many-to-many relationship
+model DocumentTag {
+  documentId String   @map("document_id") @db.Uuid
+  tagId      String   @map("tag_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, tagId])
+  @@map("document_tags")
+}
+
+// Enum for storage provider types
+enum StorageType {
+  SUPABASE
+  CLOUDINARY
+  GDRIVE
+}

@@ -1,0 +1,180 @@
+{
+  "common": {
+    "appName": "StudyDocs",
+    "tagline": "Your Personal Document Storage",
+    "loading": "Loading...",
+    "uploading": "Uploading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search...",
+    "filter": "Filter",
+    "upload": "Upload",
+    "download": "Download",
+    "settings": "Settings",
+    "confirmDelete": "Are you sure you want to delete?"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "semesters": "Semesters",
+    "subjects": "Subjects",
+    "documents": "Documents",
+    "tags": "Tags",
+    "starred": "Starred",
+    "recent": "Recent",
+    "search": "Search",
+    "insights": "Insights",
+    "aiTools": "AI Tools",
+    "ai-tools": "AI Tools",
+    "planner": "Study Planner",
+    "storage": "Storage",
+    "knowledgeGraph": "Knowledge Graph",
+    "knowledge-graph": "Knowledge Graph",
+    "security": "Security",
+    "trash": "Trash",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "forgotPassword": "Forgot Password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "loginSuccess": "Login successful!",
+    "registerSuccess": "Registration successful!",
+    "loginDescription": "Sign in to access your documents",
+    "registerDescription": "Create a new account"
+  },
+  "dashboard": {
+    "welcome": "Welcome back",
+    "overview": "Overview of your document storage",
+    "totalDocuments": "Total Documents",
+    "totalSubjects": "Total Subjects",
+    "recentDocuments": "Recent Documents",
+    "storageUsed": "Storage Used"
+  },
+  "semesters": {
+    "title": "Semesters",
+    "description": "Manage your semesters and subjects",
+    "create": "Create Semester",
+    "edit": "Edit Semester",
+    "name": "Semester Name",
+    "year": "Year",
+    "semesterNumber": "Semester",
+    "semester": "Semester",
+    "semester1": "Semester 1",
+    "semester2": "Semester 2",
+    "summer": "Summer",
+    "empty": "No semesters yet",
+    "emptyDescription": "Start by creating your first semester",
+    "notFound": "Semester not found",
+    "backToList": "Back to list"
+  },
+  "subjects": {
+    "title": "Subjects",
+    "create": "Create Subject",
+    "edit": "Edit Subject",
+    "name": "Subject Name",
+    "code": "Subject Code",
+    "description": "Description",
+    "descriptionPlaceholder": "Short description of the subject...",
+    "color": "Color",
+    "documents": "documents",
+    "empty": "No subjects yet",
+    "emptyDescription": "Create a subject to start adding documents",
+    "notFound": "Subject not found"
+  },
+  "documents": {
+    "title": "Documents",
+    "upload": "Upload Document",
+    "fileName": "File Name",
+    "fileSize": "File Size",
+    "uploadedAt": "Uploaded At",
+    "subject": "Subject",
+    "tags": "Tags",
+    "noDocuments": "No documents yet",
+    "emptyDescription": "Create a semester and subject to start uploading documents",
+    "dropzone": "Drop files here or click to upload",
+    "selected": "selected",
+    "deselect": "Deselect",
+    "move": "Move"
+  },
+  "starred": {
+    "empty": "No starred documents",
+    "emptyDescription": "Star important documents for quick access"
+  },
+  "trash": {
+    "empty": "Trash is empty",
+    "emptyDescription": "Deleted documents will appear here",
+    "restore": "Restore",
+    "deletePermanently": "Delete Permanently",
+    "emptyTrash": "Empty Trash",
+    "deletedAt": "Deleted At",
+    "confirmPermanentDelete": "Are you sure you want to permanently delete? This action cannot be undone.",
+    "confirmEmptyTrash": "Are you sure you want to empty trash? This action cannot be undone."
+  },
+  "tags": {
+    "title": "Tags",
+    "create": "Create Tag",
+    "name": "Tag Name"
+  },
+  "search": {
+    "title": "Advanced Search",
+    "description": "Search across all your documents",
+    "keyword": "Keyword",
+    "semantic": "Semantic AI",
+    "qa": "Q&A",
+    "filters": "Filters",
+    "clearFilters": "Clear Filters",
+    "noResults": "No results found"
+  },
+  "insights": {
+    "title": "Study Insights",
+    "description": "Statistics and analysis of your learning",
+    "bySubject": "By Subject",
+    "access": "Access",
+    "progress": "Progress",
+    "semester": "Semester"
+  },
+  "aiTools": {
+    "title": "AI Tools",
+    "description": "AI-powered productivity tools",
+    "summary": "Summary",
+    "flashcards": "Flashcard Generator",
+    "chat": "Chat with Document"
+  },
+  "storage": {
+    "title": "Storage Monitoring",
+    "description": "Manage and monitor storage capacity",
+    "healthCheck": "Health Check",
+    "migrationSuggestion": "Migration Suggestion"
+  },
+  "planner": {
+    "title": "Study Planner",
+    "description": "Plan your study and track progress",
+    "addTask": "Add Task",
+    "todo": "To Do",
+    "inProgress": "In Progress",
+    "done": "Done",
+    "reviewReminders": "Review Reminders"
+  },
+  "knowledgeGraph": {
+    "title": "Knowledge Graph",
+    "description": "Relationships between documents, subjects and tags"
+  },
+  "security": {
+    "title": "Security Dashboard",
+    "description": "Monitor account security and activity",
+    "activityLog": "Activity Log",
+    "sessions": "Login Sessions",
+    "apiUsage": "API Usage",
+    "changePassword": "Change Password"
+  }
+}
