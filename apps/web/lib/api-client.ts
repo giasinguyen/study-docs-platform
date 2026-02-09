@@ -165,3 +165,44 @@ export async function aiChat(params: {
 
   return res.json();
 }
+
+// ── Storage API ──────────────────────────────────────────────
+
+const DRIVE_THRESHOLD = 10 * 1024 * 1024; // 10 MB
+
+export interface StorageUploadResult {
+  fileUrl: string;
+  storageType: 'SUPABASE' | 'GDRIVE' | 'CLOUDINARY';
+}
+
+/**
+ * Check if file should be uploaded via backend (for Google Drive routing)
+ */
+export function shouldUseBackendStorage(file: File): boolean {
+  return file.size >= DRIVE_THRESHOLD;
+}
+
+/**
+ * Upload file via backend storage API (routes to Google Drive for large files)
+ */
+export async function uploadToStorage(
+  file: File,
+  userId: string,
+): Promise<StorageUploadResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('userId', userId);
+
+  // No auth required for storage endpoint (development mode)
+  const res = await fetch(`${API_URL}/storage/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Storage upload failed: ${res.status}`);
+  }
+
+  return res.json();
+}
