@@ -17,7 +17,7 @@ const DRIVE_THRESHOLD = 10 * 1024 * 1024; // 10 MB
 export class StorageService {
   private supabase: SupabaseClient;
   private drive: drive_v3.Drive | null = null;
-  private driveFolderId: string | null = null;
+  private sharedDriveId: string | null = null;  // Shared Drive (Team Drive) ID
   private logger = new Logger(StorageService.name);
 
   constructor(private configService: ConfigService) {
@@ -38,11 +38,18 @@ export class StorageService {
     const privateKey = this.configService.get<string>(
       'GOOGLE_DRIVE_PRIVATE_KEY',
     );
-    const folderId = this.configService.get<string>('GOOGLE_DRIVE_FOLDER_ID');
+    const sharedDriveId = this.configService.get<string>('GOOGLE_SHARED_DRIVE_ID');
 
-    if (!clientEmail || !privateKey || !folderId) {
+    if (!clientEmail || !privateKey) {
       this.logger.warn(
         'Google Drive credentials not configured – large files will fall back to Supabase',
+      );
+      return;
+    }
+
+    if (!sharedDriveId) {
+      this.logger.warn(
+        'GOOGLE_SHARED_DRIVE_ID not configured – Service Accounts require Shared Drives. Large files will fall back to Supabase.',
       );
       return;
     }
@@ -55,8 +62,8 @@ export class StorageService {
       });
 
       this.drive = google.drive({ version: 'v3', auth });
-      this.driveFolderId = folderId;
-      this.logger.log('Google Drive service account initialized successfully');
+      this.sharedDriveId = sharedDriveId;
+      this.logger.log('Google Drive service account initialized with Shared Drive');
     } catch (error) {
       this.logger.error('Failed to initialize Google Drive:', error);
     }
@@ -146,17 +153,18 @@ export class StorageService {
     file: Express.Multer.File,
     userId: string,
   ): Promise<UploadResult> {
-    if (!this.drive || !this.driveFolderId) {
-      this.logger.warn('Google Drive not ready, falling back to Supabase');
+    if (!this.drive || !this.sharedDriveId) {
+      this.logger.warn('Google Shared Drive not ready, falling back to Supabase');
       return this.uploadToSupabase(file, userId);
     }
 
     try {
-      // Ensure a user sub-folder exists
+      // Ensure a user sub-folder exists in Shared Drive
       const userFolderId = await this.getOrCreateUserFolder(userId);
 
       const driveFileName = `${Date.now()}-${file.originalname}`;
 
+      // Upload to Shared Drive with supportsAllDrives flag
       const response = await this.drive.files.create({
         requestBody: {
           name: driveFileName,
@@ -168,6 +176,7 @@ export class StorageService {
           body: Readable.from(file.buffer),
         },
         fields: 'id, webViewLink',
+        supportsAllDrives: true,  // Required for Shared Drives
       });
 
       const fileId = response.data.id!;
@@ -179,6 +188,7 @@ export class StorageService {
           role: 'reader',
           type: 'anyone',
         },
+        supportsAllDrives: true,  // Required for Shared Drives
       });
 
       const fileUrl =
@@ -186,7 +196,7 @@ export class StorageService {
         `https://drive.google.com/file/d/${fileId}/view`;
 
       this.logger.log(
-        `Uploaded to Google Drive (${(file.size / 1024 / 1024).toFixed(2)} MB): ${file.originalname}`,
+        `Uploaded to Google Shared Drive (${(file.size / 1024 / 1024).toFixed(2)} MB): ${file.originalname}`,
       );
 
       return {
@@ -199,35 +209,39 @@ export class StorageService {
     }
   }
 
-  /** Find or create a per-user sub-folder inside the root Drive folder */
+  /** Find or create a per-user sub-folder inside the Shared Drive */
   private async getOrCreateUserFolder(userId: string): Promise<string> {
-    if (!this.drive || !this.driveFolderId) {
-      throw new Error('Drive not initialized');
+    if (!this.drive || !this.sharedDriveId) {
+      throw new Error('Shared Drive not initialized');
     }
 
-    // Search for existing folder
-    const query = `name='${userId}' and '${this.driveFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    // Search for existing folder in Shared Drive
+    const query = `name='${userId}' and '${this.sharedDriveId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
     const list = await this.drive.files.list({
       q: query,
       fields: 'files(id, name)',
-      spaces: 'drive',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+      corpora: 'drive',
+      driveId: this.sharedDriveId,
     });
 
     if (list.data.files && list.data.files.length > 0) {
       return list.data.files[0].id!;
     }
 
-    // Create new folder
+    // Create new folder in Shared Drive
     const folder = await this.drive.files.create({
       requestBody: {
         name: userId,
         mimeType: 'application/vnd.google-apps.folder',
-        parents: [this.driveFolderId],
+        parents: [this.sharedDriveId],
       },
       fields: 'id',
+      supportsAllDrives: true,
     });
 
-    this.logger.log(`Created Drive folder for user ${userId}`);
+    this.logger.log(`Created folder in Shared Drive for user ${userId}`);
     return folder.data.id!;
   }
 
