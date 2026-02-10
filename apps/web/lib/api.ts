@@ -132,7 +132,7 @@ export async function fetchDocumentsBySubject() {
 export async function fetchStorageStats() {
   const { data, error } = await supabase()
     .from('documents')
-    .select('file_size');
+    .select('file_size, file_path');
   if (error) throw error;
 
   const stats: Record<string, { totalBytes: number; fileCount: number }> = {
@@ -141,10 +141,20 @@ export async function fetchStorageStats() {
     CLOUDINARY: { totalBytes: 0, fileCount: 0 },
   };
 
-  // All files are currently stored in Supabase
   for (const doc of data ?? []) {
-    stats.SUPABASE.totalBytes += Number(doc.file_size) || 0;
-    stats.SUPABASE.fileCount++;
+    const size = Number(doc.file_size) || 0;
+    const path = (doc as any).file_path ?? '';
+    // Detect provider by file_path URL pattern
+    if (path.includes('drive.google.com')) {
+      stats.GDRIVE.totalBytes += size;
+      stats.GDRIVE.fileCount++;
+    } else if (path.includes('cloudinary.com') || path.includes('res.cloudinary')) {
+      stats.CLOUDINARY.totalBytes += size;
+      stats.CLOUDINARY.fileCount++;
+    } else {
+      stats.SUPABASE.totalBytes += size;
+      stats.SUPABASE.fileCount++;
+    }
   }
 
   return stats;

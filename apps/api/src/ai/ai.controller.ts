@@ -7,6 +7,7 @@ import {
   ParseFilePipe,
   MaxFileSizeValidator,
   BadRequestException,
+  InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -19,6 +20,8 @@ const MAX_AI_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 // @UseGuards(SupabaseGuard)
 @Controller('ai')
 export class AiController {
+  private logger = new Logger(AiController.name);
+
   constructor(private readonly aiService: AiService) {}
 
   @Post('summarize')
@@ -32,7 +35,13 @@ export class AiController {
     file: Express.Multer.File,
     @Body('length') length?: 'short' | 'medium' | 'detailed',
   ) {
-    return this.aiService.summarize(file, length || 'medium');
+    try {
+      return await this.aiService.summarize(file, length || 'medium');
+    } catch (error: any) {
+      this.logger.error(`Summarize failed: ${error?.message}`, error?.stack);
+      if (error?.status) throw error;
+      throw new InternalServerErrorException(error?.message || 'AI summarize failed');
+    }
   }
 
   @Post('flashcards')
@@ -50,7 +59,13 @@ export class AiController {
     if (isNaN(num) || num < 1 || num > 50) {
       throw new BadRequestException('Count must be 1-50');
     }
-    return this.aiService.generateFlashcards(file, num);
+    try {
+      return await this.aiService.generateFlashcards(file, num);
+    } catch (error: any) {
+      this.logger.error(`Flashcards failed: ${error?.message}`, error?.stack);
+      if (error?.status) throw error;
+      throw new InternalServerErrorException(error?.message || 'AI flashcards failed');
+    }
   }
 
   @Post('chat')
@@ -74,16 +89,22 @@ export class AiController {
       }
     }
 
-    if (file) {
-      return this.aiService.chatWithFile(file, message, history);
-    }
+    try {
+      if (file) {
+        return await this.aiService.chatWithFile(file, message, history);
+      }
 
-    if (documentText) {
-      return this.aiService.chatWithDocument(documentText, message, history);
-    }
+      if (documentText) {
+        return await this.aiService.chatWithDocument(documentText, message, history);
+      }
 
-    throw new BadRequestException(
-      'Either file or documentText is required',
-    );
+      throw new BadRequestException(
+        'Either file or documentText is required',
+      );
+    } catch (error: any) {
+      if (error?.status) throw error;
+      this.logger.error(`Chat failed: ${error?.message}`, error?.stack);
+      throw new InternalServerErrorException(error?.message || 'AI chat failed');
+    }
   }
 }

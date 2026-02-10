@@ -46,8 +46,9 @@ export default function StoragePage() {
   const totalFiles = providers.reduce((acc, p) => acc + p.files, 0);
 
   // Find large files on Supabase that could be moved to GDrive
+  // Only show large files on Supabase (not Drive files) as migration candidates
   const largeFiles = (allDocs ?? [])
-    .filter((d) => Number(d.file_size) > 5 * 1024 * 1024)
+    .filter((d) => Number(d.file_size) > 5 * 1024 * 1024 && !d.file_path?.includes('drive.google.com'))
     .sort((a, b) => Number(b.file_size) - Number(a.file_size))
     .slice(0, 5);
 
@@ -167,7 +168,7 @@ export default function StoragePage() {
                 <div key={file.id} className="flex items-center gap-3 p-3 rounded-lg bg-warning/5 border border-warning/20">
                   <AlertTriangle className="size-4 text-warning flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{file.title}</p>
+                    <p className="text-sm font-medium truncate">{file.name}</p>
                     <p className="text-[11px] text-muted-foreground">{formatFileSize(Number(file.file_size))} · Supabase</p>
                   </div>
                   <Button variant="outline" size="sm" className="gap-1 text-xs">
