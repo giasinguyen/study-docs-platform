@@ -138,14 +138,35 @@ export default function SubjectDetailPage({ params }: SubjectDetailPageProps) {
       const sanitizedName = sanitizeFileName(file.name);
       const filePath = `${user.id}/${id}/${Date.now()}_${sanitizedName}`;
 
-      // Upload all files to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file);
+      let finalFilePath = filePath;
 
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        continue;
+      // Route by file size: >= 10MB → backend API (Google Drive), < 10MB → Supabase
+      if (shouldUseBackendStorage(file)) {
+        try {
+          console.log(`Uploading large file (${(file.size / 1024 / 1024).toFixed(2)} MB) via backend...`);
+          const result = await uploadToStorage(file, user.id);
+          finalFilePath = result.fileUrl;
+          console.log(`Uploaded to ${result.storageType}: ${finalFilePath}`);
+        } catch (err) {
+          console.error('Backend upload failed, falling back to Supabase:', err);
+          const { error: uploadError } = await supabase.storage
+            .from('documents')
+            .upload(filePath, file);
+          if (uploadError) {
+            console.error('Supabase fallback upload error:', uploadError);
+            continue;
+          }
+        }
+      } else {
+        // Upload small files directly to Supabase
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file);
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          continue;
+        }
       }
 
       // Create document record
@@ -153,7 +174,7 @@ export default function SubjectDetailPage({ params }: SubjectDetailPageProps) {
         user_id: user.id,
         subject_id: id,
         name: file.name,
-        file_path: filePath,
+        file_path: finalFilePath,
         file_type: fileExt,
         file_size: file.size,
       });

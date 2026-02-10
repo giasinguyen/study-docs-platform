@@ -2,8 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { google, drive_v3 } from 'googleapis';
-import { StorageType } from '@prisma/client';
 import { Readable } from 'stream';
+
+export type StorageType = 'SUPABASE' | 'GDRIVE' | 'CLOUDINARY';
 
 export interface UploadResult {
   fileUrl: string;
@@ -17,7 +18,7 @@ const DRIVE_THRESHOLD = 10 * 1024 * 1024; // 10 MB
 export class StorageService {
   private supabase: SupabaseClient;
   private drive: drive_v3.Drive | null = null;
-  private sharedDriveId: string | null = null;  // Shared Drive (Team Drive) ID
+  private driveFolderId: string | null = null;
   private logger = new Logger(StorageService.name);
 
   constructor(private configService: ConfigService) {
@@ -27,46 +28,65 @@ export class StorageService {
       this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Google Drive client (service account)
+    // Google Drive client (OAuth 2.0 for personal accounts)
     this.initGoogleDrive();
   }
 
   private initGoogleDrive(): void {
-    const clientEmail = this.configService.get<string>(
-      'GOOGLE_DRIVE_CLIENT_EMAIL',
-    );
-    const privateKey = this.configService.get<string>(
-      'GOOGLE_DRIVE_PRIVATE_KEY',
-    );
-    const sharedDriveId = this.configService.get<string>('GOOGLE_SHARED_DRIVE_ID');
+    const clientId = this.configService.get<string>('GOOGLE_OAUTH_CLIENT_ID');
+    const clientSecret = this.configService.get<string>('GOOGLE_OAUTH_CLIENT_SECRET');
+    const refreshToken = this.configService.get<string>('GOOGLE_OAUTH_REFRESH_TOKEN');
+    const folderId = this.configService.get<string>('GOOGLE_DRIVE_FOLDER_ID');
 
-    if (!clientEmail || !privateKey) {
+    if (!clientId || !clientSecret || !refreshToken) {
       this.logger.warn(
-        'Google Drive credentials not configured – large files will fall back to Supabase',
-      );
-      return;
-    }
-
-    if (!sharedDriveId) {
-      this.logger.warn(
-        'GOOGLE_SHARED_DRIVE_ID not configured – Service Accounts require Shared Drives. Large files will fall back to Supabase.',
+        'Google Drive OAuth not configured – large files will fall back to Supabase. ' +
+        'Run GET /storage/oauth/url to set up Google Drive.',
       );
       return;
     }
 
     try {
-      const auth = new google.auth.JWT({
-        email: clientEmail,
-        key: privateKey.replace(/\\n/g, '\n'),
-        scopes: ['https://www.googleapis.com/auth/drive.file'],
-      });
+      const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+      oauth2Client.setCredentials({ refresh_token: refreshToken });
 
-      this.drive = google.drive({ version: 'v3', auth });
-      this.sharedDriveId = sharedDriveId;
-      this.logger.log('Google Drive service account initialized with Shared Drive');
+      this.drive = google.drive({ version: 'v3', auth: oauth2Client });
+      this.driveFolderId = folderId || null;
+      this.logger.log('Google Drive initialized with OAuth 2.0 (personal account)');
     } catch (error) {
       this.logger.error('Failed to initialize Google Drive:', error);
     }
+  }
+
+  /** Generate Google OAuth authorization URL (for one-time token retrieval) */
+  getAuthUrl(): string {
+    const clientId = this.configService.get<string>('GOOGLE_OAUTH_CLIENT_ID');
+    const clientSecret = this.configService.get<string>('GOOGLE_OAUTH_CLIENT_SECRET');
+    const redirectUri = `http://localhost:${this.configService.get('PORT') || 3001}/auth/google/callback`;
+
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+
+    return oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      prompt: 'consent',
+      scope: ['https://www.googleapis.com/auth/drive.file'],
+    });
+  }
+
+  /** Exchange authorization code for tokens */
+  async exchangeCode(code: string): Promise<string> {
+    const clientId = this.configService.get<string>('GOOGLE_OAUTH_CLIENT_ID');
+    const clientSecret = this.configService.get<string>('GOOGLE_OAUTH_CLIENT_SECRET');
+    const redirectUri = `http://localhost:${this.configService.get('PORT') || 3001}/auth/google/callback`;
+
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+    const { tokens } = await oauth2Client.getToken(code);
+
+    if (!tokens.refresh_token) {
+      throw new Error('No refresh token returned. Make sure to revoke access and try again.');
+    }
+
+    return tokens.refresh_token;
   }
 
   // ── public API ───────────────────────────────────────────────
@@ -92,25 +112,6 @@ export class StorageService {
     }
 
     return this.uploadToSupabase(file, userId);
-  }
-
-  async deleteFile(fileUrl: string, storageType: StorageType): Promise<void> {
-    switch (storageType) {
-      case StorageType.SUPABASE: {
-        const path = fileUrl.split('/documents/')[1];
-        if (path) {
-          await this.supabase.storage.from('documents').remove([path]);
-        }
-        break;
-      }
-      case StorageType.GDRIVE: {
-        await this.deleteFromGoogleDrive(fileUrl);
-        break;
-      }
-      case StorageType.CLOUDINARY:
-        // TODO: Implement Cloudinary delete
-        break;
-    }
   }
 
   // ── Supabase ─────────────────────────────────────────────────
@@ -143,32 +144,29 @@ export class StorageService {
 
     return {
       fileUrl: publicUrl,
-      storageType: StorageType.SUPABASE,
+      storageType: 'SUPABASE',
     };
   }
 
-  // ── Google Drive ─────────────────────────────────────────────
+  // ── Google Drive (OAuth 2.0 – personal account) ──────────────
 
   private async uploadToGoogleDrive(
     file: Express.Multer.File,
     userId: string,
   ): Promise<UploadResult> {
-    if (!this.drive || !this.sharedDriveId) {
-      this.logger.warn('Google Shared Drive not ready, falling back to Supabase');
+    if (!this.drive) {
+      this.logger.warn('Google Drive not ready, falling back to Supabase');
       return this.uploadToSupabase(file, userId);
     }
 
     try {
-      // Ensure a user sub-folder exists in Shared Drive
-      const userFolderId = await this.getOrCreateUserFolder(userId);
-
+      const parentId = await this.getOrCreateUserFolder(userId);
       const driveFileName = `${Date.now()}-${file.originalname}`;
 
-      // Upload to Shared Drive with supportsAllDrives flag
       const response = await this.drive.files.create({
         requestBody: {
           name: driveFileName,
-          parents: [userFolderId],
+          parents: [parentId],
           mimeType: file.mimetype,
         },
         media: {
@@ -176,7 +174,6 @@ export class StorageService {
           body: Readable.from(file.buffer),
         },
         fields: 'id, webViewLink',
-        supportsAllDrives: true,  // Required for Shared Drives
       });
 
       const fileId = response.data.id!;
@@ -188,7 +185,6 @@ export class StorageService {
           role: 'reader',
           type: 'anyone',
         },
-        supportsAllDrives: true,  // Required for Shared Drives
       });
 
       const fileUrl =
@@ -196,62 +192,76 @@ export class StorageService {
         `https://drive.google.com/file/d/${fileId}/view`;
 
       this.logger.log(
-        `Uploaded to Google Shared Drive (${(file.size / 1024 / 1024).toFixed(2)} MB): ${file.originalname}`,
+        `Uploaded to Google Drive (${(file.size / 1024 / 1024).toFixed(2)} MB): ${file.originalname}`,
       );
 
       return {
         fileUrl,
-        storageType: StorageType.GDRIVE,
+        storageType: 'GDRIVE',
       };
-    } catch (error) {
-      this.logger.error('Google Drive upload failed, falling back to Supabase:', error);
+    } catch (error: any) {
+      this.logger.error(`Google Drive upload failed: ${error?.message || error}`);
+      this.logger.error('Falling back to Supabase');
       return this.uploadToSupabase(file, userId);
     }
   }
 
-  /** Find or create a per-user sub-folder inside the Shared Drive */
+  /** Find or create a per-user sub-folder in the target Drive folder */
   private async getOrCreateUserFolder(userId: string): Promise<string> {
-    if (!this.drive || !this.sharedDriveId) {
-      throw new Error('Shared Drive not initialized');
+    if (!this.drive) {
+      throw new Error('Drive not initialized');
     }
 
-    // Search for existing folder in Shared Drive
-    const query = `name='${userId}' and '${this.sharedDriveId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const parentId = this.driveFolderId;
+
+    let q = `name='${userId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    if (parentId) {
+      q += ` and '${parentId}' in parents`;
+    }
+
     const list = await this.drive.files.list({
-      q: query,
+      q,
       fields: 'files(id, name)',
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
-      corpora: 'drive',
-      driveId: this.sharedDriveId,
+      spaces: 'drive',
     });
 
     if (list.data.files && list.data.files.length > 0) {
       return list.data.files[0].id!;
     }
 
-    // Create new folder in Shared Drive
+    // Create new folder
+    const requestBody: any = {
+      name: userId,
+      mimeType: 'application/vnd.google-apps.folder',
+    };
+    if (parentId) {
+      requestBody.parents = [parentId];
+    }
+
     const folder = await this.drive.files.create({
-      requestBody: {
-        name: userId,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [this.sharedDriveId],
-      },
+      requestBody,
       fields: 'id',
-      supportsAllDrives: true,
     });
 
-    this.logger.log(`Created folder in Shared Drive for user ${userId}`);
+    this.logger.log(`Created Drive folder for user ${userId}`);
     return folder.data.id!;
+  }
+
+  async deleteFile(fileUrl: string, storageType: StorageType): Promise<void> {
+    if (storageType === 'GDRIVE') {
+      await this.deleteFromGoogleDrive(fileUrl);
+    } else if (storageType === 'SUPABASE') {
+      const path = fileUrl.split('/documents/')[1];
+      if (path) {
+        await this.supabase.storage.from('documents').remove([path]);
+      }
+    }
   }
 
   private async deleteFromGoogleDrive(fileUrl: string): Promise<void> {
     if (!this.drive) return;
 
     try {
-      // Extract file ID from URL patterns like:
-      // https://drive.google.com/file/d/FILE_ID/view
-      // https://drive.google.com/open?id=FILE_ID
       const match =
         fileUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) ||
         fileUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
