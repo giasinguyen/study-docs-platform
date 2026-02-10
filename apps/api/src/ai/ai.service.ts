@@ -51,9 +51,8 @@ export class AiService {
     try {
       this.genAI = new GoogleGenerativeAI(apiKey);
       this.model = this.genAI.getGenerativeModel({
-        // Changed from gemini-2.0-flash to gemini-1.5-flash for better free tier quota
-        // Free tier limits: 15 RPM, 1,500 RPD, 1M tokens/min
-        model: 'gemini-1.5-flash',
+        // gemini-2.0-flash: free tier 15 RPM, 1500 RPD
+        model: 'gemini-2.0-flash',
         safetySettings: [
           {
             category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -65,7 +64,7 @@ export class AiService {
           },
         ],
       });
-      this.logger.log('Gemini AI initialized successfully with gemini-1.5-flash');
+      this.logger.log('Gemini AI initialized successfully with gemini-2.0-flash');
     } catch (error) {
       this.logger.error('Failed to initialize Gemini AI:', error);
     }

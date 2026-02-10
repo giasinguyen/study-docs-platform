@@ -8,6 +8,8 @@ import {
   MaxFileSizeValidator,
   BadRequestException,
   InternalServerErrorException,
+  HttpException,
+  HttpStatus,
   Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -39,8 +41,7 @@ export class AiController {
       return await this.aiService.summarize(file, length || 'medium');
     } catch (error: any) {
       this.logger.error(`Summarize failed: ${error?.message}`, error?.stack);
-      if (error?.status) throw error;
-      throw new InternalServerErrorException(error?.message || 'AI summarize failed');
+      throw this.handleAiError(error);
     }
   }
 
@@ -63,8 +64,7 @@ export class AiController {
       return await this.aiService.generateFlashcards(file, num);
     } catch (error: any) {
       this.logger.error(`Flashcards failed: ${error?.message}`, error?.stack);
-      if (error?.status) throw error;
-      throw new InternalServerErrorException(error?.message || 'AI flashcards failed');
+      throw this.handleAiError(error);
     }
   }
 
@@ -102,9 +102,27 @@ export class AiController {
         'Either file or documentText is required',
       );
     } catch (error: any) {
-      if (error?.status) throw error;
+      if (error?.status && error?.status < 500) throw error;
       this.logger.error(`Chat failed: ${error?.message}`, error?.stack);
-      throw new InternalServerErrorException(error?.message || 'AI chat failed');
+      throw this.handleAiError(error);
     }
+  }
+
+  private handleAiError(error: any): HttpException {
+    if (error instanceof HttpException) return error;
+    const msg = error?.message || '';
+    if (msg.includes('429') || msg.includes('Too Many Requests') || msg.includes('quota')) {
+      return new HttpException(
+        { statusCode: 429, message: 'AI quota exceeded. Please try again in a minute.', error: 'Too Many Requests' },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    if (msg.includes('404') || msg.includes('not found')) {
+      return new HttpException(
+        { statusCode: 503, message: 'AI model temporarily unavailable. Please try again later.', error: 'Service Unavailable' },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+    return new InternalServerErrorException(msg || 'AI request failed');
   }
 }
