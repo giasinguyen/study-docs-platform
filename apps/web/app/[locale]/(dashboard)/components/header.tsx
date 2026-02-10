@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Search, Bell, Settings, LogOut, User, Command } from 'lucide-react';
+import { ProfileSettingsModal } from './profile-settings-modal';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface HeaderProps {
@@ -18,6 +19,7 @@ interface HeaderProps {
 export function Header({ user }: HeaderProps) {
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -76,11 +78,23 @@ export function Header({ user }: HeaderProps) {
                   <p className="text-sm font-medium truncate">{user.email?.split('@')[0]}</p>
                   <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                 </div>
-                <button className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground rounded-lg cursor-pointer transition-colors hover:bg-accent">
+                <button 
+                  onClick={() => {
+                    setProfileModalOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground rounded-lg cursor-pointer transition-colors hover:bg-accent"
+                >
                   <User className="size-4 text-muted-foreground" />
                   Hồ sơ
                 </button>
-                <button className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground rounded-lg cursor-pointer transition-colors hover:bg-accent">
+                <button 
+                  onClick={() => {
+                    setProfileModalOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground rounded-lg cursor-pointer transition-colors hover:bg-accent"
+                >
                   <Settings className="size-4 text-muted-foreground" />
                   Cài đặt
                 </button>
@@ -94,6 +108,12 @@ export function Header({ user }: HeaderProps) {
           )}
         </div>
       </div>
+
+      <ProfileSettingsModal 
+        open={profileModalOpen}
+        onOpenChange={setProfileModalOpen}
+        user={user}
+      />
     </header>
   );
 }

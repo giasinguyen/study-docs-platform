@@ -28,7 +28,8 @@ study-docs-platform/          Turborepo monorepo
 | **Database** | PostgreSQL via Supabase |
 | **ORM** | Prisma 7 (API), Supabase JS client (Web) |
 | **Backend** | NestJS 11, Passport JWT |
-| **Storage** | Supabase Storage, Google Drive API, Cloudinary |
+| **Storage** | Supabase Storage (<10MB), Google Drive OAuth 2.0 (≥10MB), Cloudinary |
+| **AI** | Google Gemini 2.0 Flash (summarization, flashcards, chat) |
 | **Monorepo** | Turborepo 2, npm workspaces |
 
 ## Database Schema
@@ -39,8 +40,14 @@ User ──< Subject ──< Document >── DocumentTag >── Tag
 
 - **User** — synced with Supabase Auth (`id`, `email`, `name`, `avatar_url`)
 - **Subject** — categories with color labels
-- **Document** — files with `storage_type` (SUPABASE / GDRIVE / CLOUDINARY), `file_url`, `file_size`, `mime_type`
+- **Document** — files with `name`, `file_path` (URL), `file_size`, `file_type` (MIME type), `is_starred`, `is_deleted`
+  - **Storage provider detection**: Determined by parsing `file_path` URL:
+    - Contains `drive.google.com` → Google Drive
+    - Contains `cloudinary.com` → Cloudinary
+    - Default → Supabase Storage
 - **Tag** / **DocumentTag** — many-to-many tagging
+
+**Note**: There is no `storage_type` column. Provider is detected from the `file_path` URL pattern.
 
 ## Features
 
@@ -82,8 +89,15 @@ User ──< Subject ──< Document >── DocumentTag >── Tag
 
 ### Storage
 - Multi-provider dashboard (Supabase, Google Drive, Cloudinary)
+- Smart routing: files <10MB → Supabase, ≥10MB → Google Drive (OAuth 2.0)
 - Per-provider quota tracking and progress bars
-- Large file detection (>5 MB)
+- Large file detection (>5 MB suggestions for migration)
+
+### AI-Powered Study Tools
+- **Document Summarization**: Google Gemini 2.0 Flash for concise summaries
+- **Flashcard Generation**: Auto-create study flashcards from documents
+- **Interactive Chat**: Q&A with documents using AI
+- **Quota Management**: User-friendly error messages for rate limits (429) and API issues
 
 ### Security
 - Account info from Supabase Auth (provider, email confirmation status)
@@ -100,6 +114,177 @@ User ──< Subject ──< Document >── DocumentTag >── Tag
 - Dark: navy palette (`#121629` background, `#01FF80` primary accent)
 - Light: white palette (`#ffffff` background, `#01CC66` primary accent)
 - Themed sidebar, cards, charts, and all components
+
+## 🔄 Storage Routing Logic
+
+The platform intelligently routes file uploads based on size:
+
+```
+┌─────────────────────────────────────────┐
+│         User Uploads File               │
+└─────────────┬───────────────────────────┘
+              │
+              ▼
+       ┌──────────────┐
+       │ Size Check   │
+       └──────┬───────┘
+              │
+       ┌──────┴──────┐
+       │             │
+  < 10MB         ≥ 10MB
+       │             │
+       ▼             ▼
+┌──────────────┐  ┌──────────────────────┐
+│   Supabase   │  │  Backend API         │
+│   Storage    │  │  POST /storage/upload│
+│   (Direct)   │  │  → Google Drive      │
+└──────────────┘  └──────────────────────┘
+```
+
+**Frontend Logic** (`subjects/[id]/page.tsx`):
+- Check file size: `file.size >= 10 * 1024 * 1024` (10MB)
+- Small files: Direct upload to Supabase Storage
+- Large files: `POST /storage/upload` → Backend → Google Drive (OAuth 2.0)
+
+**Storage Provider Detection**:
+Files are identified by parsing the `file_path` URL:
+- Contains `drive.google.com` → Google Drive
+- Contains `cloudinary.com` → Cloudinary  
+- Default → Supabase Storage
+
+## 🤖 AI Integration (Google Gemini)
+
+The platform uses **Google Gemini 2.0 Flash** for AI-powered study tools.
+
+### Available Features
+- **Summarization**: Extract key points from documents
+- **Flashcard Generation**: Create Q&A pairs for studying
+- **Interactive Chat**: Q&A with document context
+
+### Rate Limits (Free Tier)
+- 15 requests per minute (RPM)
+- 1,500 requests per day (RPD)
+- 1,000,000 tokens per minute (TPM)
+
+### Error Handling
+- **429 Quota Exceeded**: "AI quota exceeded. Please try again in a minute."
+- **404 Model Unavailable**: "AI model temporarily unavailable"
+- **500 Internal Error**: Detailed error logging + user-friendly message
+
+**API Endpoints**:
+- `POST /ai/summarize` - Generate document summary
+- `POST /ai/flashcards` - Create flashcards from document
+- `POST /ai/chat` - Interactive Q&A with document
+
+## 🔐 Google Drive OAuth 2.0 Setup
+
+For large file storage (≥10MB), configure Google Drive OAuth 2.0:
+
+### 1. Create Google Cloud Project
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project
+3. Enable **Google Drive API**:
+   - Navigate to "APIs & Services" → "Library"
+   - Search for "Google Drive API"
+   - Click "Enable"
+
+### 2. Create OAuth 2.0 Credentials
+
+1. Go to "APIs & Services" → "Credentials"
+2. Click "Create Credentials" → "OAuth client ID"
+3. Choose "Web application"
+4. Add authorized redirect URI:
+   ```
+   http://localhost:3001/auth/google/callback
+   ```
+   (For production, use your domain)
+5. Save the **Client ID** and **Client Secret**
+
+### 3. Get OAuth Refresh Token
+
+1. Update `apps/api/.env`:
+   ```env
+   GOOGLE_OAUTH_CLIENT_ID="your-client-id"
+   GOOGLE_OAUTH_CLIENT_SECRET="your-client-secret"
+   ```
+
+2. Start API server: `cd apps/api && npm run start:dev`
+
+3. Open browser: `http://localhost:3001/storage/oauth/url`
+
+4. Copy the authorization URL and open it
+
+5. Grant permissions to your Google account
+
+6. After redirect, copy the **refresh token** from the page
+
+7. Update `.env`:
+   ```env
+   GOOGLE_OAUTH_REFRESH_TOKEN="1//0eIQiZPlesJL3..."
+   ```
+
+8. Create a folder in Google Drive, get its ID from URL:
+   ```
+   https://drive.google.com/drive/folders/[FOLDER_ID]
+   ```
+
+9. Update `.env`:
+   ```env
+   GOOGLE_DRIVE_FOLDER_ID="your-folder-id"
+   ```
+
+10. Restart the API server
+
+**Verification**: Check logs for `"Google Drive initialized with OAuth 2.0"`
+
+## 🐛 Troubleshooting
+
+### API Returns 500 on AI Endpoints
+
+**Cause**: Gemini API key invalid or quota exceeded
+
+**Solution**:
+- Check `GEMINI_API_KEY` in `apps/api/.env`
+- Verify API key at [Google AI Studio](https://makersuite.google.com/app/apikey)
+- Wait for quota reset if seeing 429 errors
+
+### Files Not Uploading to Google Drive
+
+**Cause**: OAuth refresh token expired or invalid
+
+**Solution**:
+- Re-run OAuth flow: `http://localhost:3001/storage/oauth/url`
+- Get new refresh token
+- Update `GOOGLE_OAUTH_REFRESH_TOKEN` in `.env`
+- Restart API server
+
+### Storage Dashboard Shows Incorrect Provider
+
+**Cause**: `file_path` URL pattern not recognized
+
+**Solution**:
+- Verify `file_path` contains full URL (not just filename)
+- Check URL includes `drive.google.com` for Google Drive files
+- Review `fetchStorageStats()` logic in `lib/api.ts`
+
+### Database Connection Errors
+
+**Cause**: Invalid `DATABASE_URL` or Supabase project paused
+
+**Solution**:
+- Check `DATABASE_URL` format in `.env`
+- Unpause project in Supabase dashboard
+- Run `npx prisma db push` to sync schema
+
+### Frontend Can't Connect to Backend
+
+**Cause**: CORS misconfiguration or wrong API URL
+
+**Solution**:
+- Verify `NEXT_PUBLIC_API_URL` in `.env.local` (should be `http://localhost:3001`)
+- Check backend CORS settings in `apps/api/src/main.ts`
+- Ensure API server is running on port 3001 (check logs)
 
 ## Getting Started
 
@@ -123,15 +308,29 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 Create `apps/api/.env`:
 
 ```env
-DATABASE_URL=postgresql://...
+# Database
+DATABASE_URL=postgresql://postgres:[password]@[host]/[database]
+
+# Supabase (Auth & Storage)
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=your-service-role-key
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_STORAGE_BUCKET=documents
+
+# Google Drive OAuth 2.0 (for files ≥10MB)
+GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=GOCSPX-your-secret
+GOOGLE_OAUTH_REFRESH_TOKEN=1//0eYourRefreshToken...
+GOOGLE_DRIVE_FOLDER_ID=your-drive-folder-id
+
+# Google Gemini AI
+GEMINI_API_KEY=AIzaSy...your-gemini-api-key
+
+# JWT (optional)
 JWT_SECRET=your-jwt-secret
 
-# Optional: Google Drive
-GDRIVE_SERVICE_ACCOUNT_EMAIL=...
-GDRIVE_PRIVATE_KEY=...
-GDRIVE_FOLDER_ID=...
+# Server
+PORT=3001
 ```
 
 ### Installation
@@ -151,13 +350,17 @@ cd ../..
 ### Development
 
 ```bash
-# Start all apps (web on :3000, api on :4000)
+# Start all apps (web on :3000, api on :3001)
 npm run dev
 
 # Or start individually
 cd apps/web && npm run dev
 cd apps/api && npm run start:dev
 ```
+
+**Port Configuration**:
+- Frontend (Next.js): http://localhost:3000
+- Backend (NestJS): http://localhost:3001
 
 ### Build
 
