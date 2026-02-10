@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { User, Settings, Shield, Bell, Palette, Globe, HardDrive, LogOut, Save } from 'lucide-react';
 import { ThemeToggle } from '@/components';
@@ -22,16 +22,111 @@ interface ProfileSettingsModalProps {
 
 export function ProfileSettingsModal({ open, onOpenChange, user }: ProfileSettingsModalProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
 
   // Profile state
   const [displayName, setDisplayName] = useState(user.user_metadata?.full_name || '');
   const [bio, setBio] = useState(user.user_metadata?.bio || '');
+  const [avatarUrl, setAvatarUrl] = useState(user.user_metadata?.avatar_url || '');
 
   // Settings state
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Vui lòng chọn file ảnh (JPG, PNG, GIF)');
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Kích thước ảnh tối đa 2MB');
+      return;
+    }
+
+    setUploading(true);
+    const supabase = createClient();
+
+    try {
+      // Delete old avatar if exists
+      if (avatarUrl) {
+        const oldPath = avatarUrl.split('/avatars/')[1];
+        if (oldPath) {
+          await supabase.storage.from('avatars').remove([oldPath]);
+        }
+      }
+
+      // Generate unique filename with user folder structure
+      const fileExt = file.name.split('.').pop();
+      const fileName = `avatar-${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      // Upload to Supabase Storage (avatars bucket)
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        
+        if (uploadError.message?.includes('row-level security')) {
+          alert(
+            'Lỗi cấu hình Storage. Vui lòng liên hệ quản trị viên để cấu hình RLS policies.\n\n' +
+            'Hướng dẫn: Xem file SUPABASE_STORAGE_SETUP.md trong thư mục gốc.'
+          );
+        } else if (uploadError.message?.includes('not found')) {
+          alert(
+            'Bucket "avatars" chưa được tạo.\n\n' +
+            'Vui lòng tạo bucket "avatars" trong Supabase Dashboard → Storage.\n' +
+            'Xem file SUPABASE_STORAGE_SETUP.md để biết chi tiết.'
+          );
+        } else {
+          alert(`Lỗi khi tải lên: ${uploadError.message}`);
+        }
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Update user metadata
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: {
+          avatar_url: publicUrl,
+        },
+      });
+
+      if (updateError) {
+        console.error('Update user error:', updateError);
+        alert(`Lỗi khi cập nhật thông tin: ${updateError.message}`);
+        throw updateError;
+      }
+
+      setAvatarUrl(publicUrl);
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      // Error already handled above with specific messages
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   const handleSaveProfile = async () => {
     setLoading(true);
@@ -41,6 +136,7 @@ export function ProfileSettingsModal({ open, onOpenChange, user }: ProfileSettin
       data: {
         full_name: displayName,
         bio: bio,
+        avatar_url: avatarUrl,
       },
     });
 
@@ -92,13 +188,28 @@ export function ProfileSettingsModal({ open, onOpenChange, user }: ProfileSettin
                 <CardContent className="space-y-6">
                   <div className="flex items-center gap-6">
                     <Avatar className="w-20 h-20 ring-2 ring-primary/20">
+                      {avatarUrl && (
+                        <AvatarImage src={avatarUrl} alt={displayName || 'Avatar'} />
+                      )}
                       <AvatarFallback className="text-2xl font-semibold bg-linear-to-br from-primary/20 to-primary/5">
                         {displayName?.charAt(0)?.toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U'}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-2">
-                      <Button variant="outline" size="sm" disabled>
-                        Thay đổi ảnh đại diện
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                      >
+                        {uploading ? 'Đang tải lên...' : 'Thay đổi ảnh đại diện'}
                       </Button>
                       <p className="text-xs text-muted-foreground">
                         JPG, PNG hoặc GIF. Tối đa 2MB.

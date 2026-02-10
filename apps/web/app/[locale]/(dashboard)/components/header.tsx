@@ -6,7 +6,7 @@ import { ThemeToggle, LanguageSwitcher } from '@/components';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Search, Bell, Settings, LogOut, User, Command } from 'lucide-react';
 import { ProfileSettingsModal } from './profile-settings-modal';
@@ -64,8 +64,11 @@ export function Header({ user }: HeaderProps) {
             className="flex items-center gap-2 p-1 rounded-lg hover:bg-accent transition-colors cursor-pointer"
           >
             <Avatar className="w-7 h-7">
+              {user.user_metadata?.avatar_url && (
+                <AvatarImage src={user.user_metadata.avatar_url} alt="Avatar" />
+              )}
               <AvatarFallback className="text-[11px]">
-                {user.email?.charAt(0).toUpperCase() || 'U'}
+                {user.user_metadata?.full_name?.charAt(0)?.toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U'}
               </AvatarFallback>
             </Avatar>
           </button>
