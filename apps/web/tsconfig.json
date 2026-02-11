@@ -11,7 +11,9 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
   },
   "include": [
     "**/*.ts",

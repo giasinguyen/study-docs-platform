@@ -10,9 +10,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Note: eslint linting đã được handle bởi turbo và không cần config trong next.config
 };
 
 export default withNextIntl(nextConfig);
