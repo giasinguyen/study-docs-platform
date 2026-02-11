@@ -1,0 +1,22 @@
+# Vercel ignore file - specify files/folders to exclude from deployment
+
+# Source files
+apps/api
+apps/docs
+
+# Development
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+test
+
+# Documentation
+*.md
+!README.md
+
+# Config files not needed in deployment
+.vscode
+.idea
+.github
