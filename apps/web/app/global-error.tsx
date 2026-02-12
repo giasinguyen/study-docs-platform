@@ -1,4 +1,4 @@
-import Link from 'next/link';
+'use client';
 
 export default function GlobalError({
   error,
@@ -28,14 +28,14 @@ export default function GlobalError({
             boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
           }}>
             <h1 style={{ color: '#e11d48', marginBottom: '20px' }}>
-              ⚠️ Application Error
+              Something went wrong
             </h1>
             
             <p style={{ marginBottom: '20px', color: '#666' }}>
-              Something went wrong while loading the application.
+              An unexpected error occurred. Please try again.
             </p>
 
-            {error.message.includes('Supabase') && (
+            {error.message?.includes('Supabase') && (
               <div style={{
                 backgroundColor: '#fef2f2',
                 border: '1px solid #fecaca',
@@ -43,41 +43,11 @@ export default function GlobalError({
                 padding: '16px',
                 marginBottom: '20px',
               }}>
-                <h3 style={{ color: '#991b1b', marginBottom: '10px' }}>
-                  Missing Configuration
-                </h3>
-                <p style={{ color: '#7f1d1d', fontSize: '14px', marginBottom: '10px' }}>
-                  The application is missing required Supabase environment variables.
+                <p style={{ color: '#991b1b', fontSize: '14px' }}>
+                  Missing Supabase environment variables. Please set <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>.
                 </p>
-                <p style={{ color: '#7f1d1d', fontSize: '14px' }}>
-                  Please set the following in Vercel Dashboard:
-                </p>
-                <ul style={{ color: '#7f1d1d', fontSize: '14px', marginTop: '10px' }}>
-                  <li><code>NEXT_PUBLIC_SUPABASE_URL</code></li>
-                  <li><code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code></li>
-                </ul>
               </div>
             )}
-
-            <details style={{ marginBottom: '20px' }}>
-              <summary style={{ cursor: 'pointer', color: '#666', marginBottom: '10px' }}>
-                Error Details
-              </summary>
-              <pre style={{
-                backgroundColor: '#f5f5f5',
-                padding: '12px',
-                borderRadius: '4px',
-                overflow: 'auto',
-                fontSize: '12px',
-              }}>
-                {error.message}
-              </pre>
-              {error.digest && (
-                <p style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
-                  Error ID: {error.digest}
-                </p>
-              )}
-            </details>
 
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
@@ -94,21 +64,19 @@ export default function GlobalError({
               >
                 Try Again
               </button>
-              <Link
+              <a
                 href="/"
                 style={{
                   padding: '10px 20px',
                   backgroundColor: '#e5e7eb',
                   color: '#374151',
-                  border: 'none',
                   borderRadius: '6px',
                   textDecoration: 'none',
                   fontSize: '14px',
-                  display: 'inline-block',
                 }}
               >
                 Go Home
-              </Link>
+              </a>
             </div>
           </div>
         </div>
