@@ -17,19 +17,41 @@ export default async function LocaleLayout({
   children,
   params,
 }: LocaleLayoutProps) {
-  const { locale } = await params;
-  setRequestLocale(locale);
-  const messages = await getMessages();
+  try {
+    const { locale } = await params;
+    setRequestLocale(locale);
+    
+    let messages = {};
+    try {
+      messages = await getMessages();
+    } catch (err) {
+      console.error('Failed to load messages:', err);
+      // Continue with empty messages
+    }
 
-  return (
-    <html lang={locale} suppressHydrationWarning data-scroll-behavior="smooth">
-      <body>
-        <ThemeProvider>
-          <NextIntlClientProvider messages={messages}>
-            {children}
-          </NextIntlClientProvider>
-        </ThemeProvider>
-      </body>
-    </html>
-  );
+    return (
+      <html lang={locale} suppressHydrationWarning data-scroll-behavior="smooth">
+        <body>
+          <ThemeProvider>
+            <NextIntlClientProvider messages={messages}>
+              {children}
+            </NextIntlClientProvider>
+          </ThemeProvider>
+        </body>
+      </html>
+    );
+  } catch (error) {
+    console.error('Layout error:', error);
+    // Fallback minimal layout
+    return (
+      <html lang="en">
+        <body>
+          <div style={{ padding: '40px', textAlign: 'center' }}>
+            <h1>Study Docs Platform</h1>
+            <p>There was an error loading the page. Please try again.</p>
+          </div>
+        </body>
+      </html>
+    );
+  }
 }
