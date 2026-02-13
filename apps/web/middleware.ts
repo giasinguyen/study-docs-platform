@@ -7,11 +7,7 @@ export const config = {
   // Match all pathnames except for
   // - api routes
   // - _next (Next.js internals)
-  // - _vercel (Vercel internals)
-  // - static files (e.g. favicon.ico, robots.txt)
-  matcher: [
-    '/((?!api|_next|_vercel|.*\\..*).*)',
-    '/',
-    '/(vi|en)/:path*'
-  ],
+  // - _static (static files)
+  // - files with extensions (e.g. favicon.ico)
+  matcher: ['/((?!api|_next|_static|_vercel|[\\w-]+\\.\\w+).*)']
 };
