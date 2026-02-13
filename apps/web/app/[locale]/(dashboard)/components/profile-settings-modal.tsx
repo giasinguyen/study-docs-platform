@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { User, Settings, Shield, Bell, Palette, Globe, HardDrive, LogOut, Save } from 'lucide-react';
 import { ThemeToggle } from '@/components';
 import { createClient } from '@/lib/supabase/client';
-import { useRouter, Link } from '@/i18n/navigation';
+import { useRouter, Link } from '@/i18n/routing';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface ProfileSettingsModalProps {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Link, usePathname } from '@/i18n/navigation';
+import { Link, usePathname } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 import {
   LayoutDashboard,

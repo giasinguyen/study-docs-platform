@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from '@/i18n/navigation';
+import { useRouter } from '@/i18n/routing';
 import { ThemeToggle, LanguageSwitcher } from '@/components';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
