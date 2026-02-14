@@ -21,9 +21,9 @@
 Vercel sẽ tự động sử dụng cấu hình từ `vercel.json`, nhưng bạn có thể kiểm tra:
 
 - **Framework Preset:** Next.js
-- **Root Directory:** `apps/web` (chọn đúng directory)
-- **Build Command:** `cd ../.. && npx turbo run build --filter=web`
-- **Output Directory:** `.next`
+- **Root Directory:** `.` (root của monorepo, KHÔNG chọn `apps/web`)
+- **Build Command:** `npx turbo run build --filter=web`
+- **Output Directory:** `apps/web/.next`
 - **Install Command:** `npm install`
 
 #### Bước 3: Cấu hình Environment Variables
