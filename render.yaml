@@ -10,6 +10,7 @@ services:
     buildCommand: |
       npm install &&
       cd apps/api &&
+      npm install &&
       npx prisma generate &&
       npm run build
     startCommand: cd apps/api && node dist/main.js
