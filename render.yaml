@@ -1,0 +1,35 @@
+# Render Blueprint – NestJS API
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: study-docs-api
+    runtime: node
+    region: singapore  # Closest to Vietnam
+    plan: free         # Change to "starter" for production
+    rootDir: ./        # Monorepo root
+    buildCommand: |
+      npm install &&
+      cd apps/api &&
+      npx prisma generate &&
+      npm run build
+    startCommand: cd apps/api && node dist/main.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false  # Set manually in Render dashboard
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false  # e.g. https://your-app.vercel.app

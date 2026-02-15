@@ -370,6 +370,29 @@ npm run lint           # Lint all apps
 npm run check-types    # Type-check all apps
 ```
 
+## Deployment
+
+### Frontend (Vercel)
+
+See [VERCEL_SETUP.md](./VERCEL_SETUP.md) for deploying the Next.js frontend to Vercel.
+
+### Backend (Render)
+
+See deployment documentation:
+- 📘 [RENDER_DEPLOY.md](./RENDER_DEPLOY.md) — Overview & deployment steps
+- 📘 [RENDER_SETUP_ENV.md](./RENDER_SETUP_ENV.md) — Detailed environment variables guide
+- ✅ [RENDER_CHECKLIST.md](./RENDER_CHECKLIST.md) — Step-by-step checklist
+
+Quick validation:
+```bash
+# Check your environment variables before deploying
+node scripts/check-render-env.js
+```
+
+### Environment Template
+
+Copy [.env.render.template](./.env.render.template) and fill in values for Render deployment.
+
 ## Project Structure (Web App)
 
 ```
