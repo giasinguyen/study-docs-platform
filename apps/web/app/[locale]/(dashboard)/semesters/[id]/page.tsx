@@ -132,7 +132,7 @@ export default function SemesterDetailPage({ params }: SemesterDetailPageProps) 
     return (
       <div className="empty-state py-16">
         <h3 className="font-medium mb-1">{t('semesters.notFound')}</h3>
-        <Link href="/dashboard/semesters" className="btn btn-primary btn-sm mt-4">
+        <Link href="/semesters" className="btn btn-primary btn-sm mt-4">
           {t('semesters.backToList')}
         </Link>
       </div>
@@ -143,7 +143,7 @@ export default function SemesterDetailPage({ params }: SemesterDetailPageProps) 
     <div className="space-y-4 fade-in">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/dashboard/semesters" className="hover:text-foreground">
+        <Link href="/semesters" className="hover:text-foreground">
           {t('semesters.title')}
         </Link>
         <span>/</span>
@@ -185,7 +185,7 @@ export default function SemesterDetailPage({ params }: SemesterDetailPageProps) 
           {subjects.map((subject) => (
             <Link
               key={subject.id}
-              href={`/dashboard/subjects/${subject.id}`}
+              href={`/subjects/${subject.id}`}
               className="card p-4 hover:border-muted-foreground transition-colors group"
             >
               <div className="flex items-start justify-between mb-3">

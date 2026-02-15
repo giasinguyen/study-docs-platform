@@ -33,7 +33,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push('/dashboard/semesters');
+    router.push('/semesters');
   };
 
   return (

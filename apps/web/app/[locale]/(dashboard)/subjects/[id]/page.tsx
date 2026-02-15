@@ -242,7 +242,7 @@ export default function SubjectDetailPage({ params }: SubjectDetailPageProps) {
     return (
       <div className="empty-state py-16">
         <h3 className="font-medium mb-1">{t('subjects.notFound')}</h3>
-        <Link href="/dashboard/semesters" className="btn btn-primary btn-sm mt-4">
+        <Link href="/semesters" className="btn btn-primary btn-sm mt-4">
           {t('semesters.backToList')}
         </Link>
       </div>
@@ -253,13 +253,13 @@ export default function SubjectDetailPage({ params }: SubjectDetailPageProps) {
     <div className="space-y-4 fade-in">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/dashboard/semesters" className="hover:text-foreground">
+        <Link href="/semesters" className="hover:text-foreground">
           {t('semesters.title')}
         </Link>
         <span>/</span>
         {semester && (
           <>
-            <Link href={`/dashboard/semesters/${semester.id}`} className="hover:text-foreground">
+            <Link href={`/semesters/${semester.id}`} className="hover:text-foreground">
               {semester.name}
             </Link>
             <span>/</span>

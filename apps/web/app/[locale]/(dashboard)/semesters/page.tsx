@@ -165,7 +165,7 @@ export default function SemestersPage() {
                   {yearSemesters.map((semester) => (
                     <Link
                       key={semester.id}
-                      href={`/dashboard/semesters/${semester.id}`}
+                      href={`/semesters/${semester.id}`}
                       className="card p-4 hover:border-muted-foreground transition-colors group"
                     >
                       <div className="flex items-start justify-between mb-3">

@@ -390,7 +390,7 @@ export function ProfileSettingsModal({ open, onOpenChange, user }: ProfileSettin
                     <div className="h-full bg-primary rounded-full" style={{ width: '6.5%' }} />
                   </div>
                   <Button variant="outline" size="sm" className="w-full" asChild>
-                    <Link href="/dashboard/storage">Xem chi tiết</Link>
+                    <Link href="/storage">Xem chi tiết</Link>
                   </Button>
                 </CardContent>
               </Card>

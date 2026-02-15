@@ -116,7 +116,7 @@ export default function StarredPage() {
                   </td>
                   <td className="hidden md:table-cell">
                     {doc.subject && (
-                      <Link href={`/dashboard/subjects/${doc.subject.id}`} className="badge badge-outline hover:bg-muted">
+                      <Link href={`/subjects/${doc.subject.id}`} className="badge badge-outline hover:bg-muted">
                         {doc.subject.name}
                       </Link>
                     )}

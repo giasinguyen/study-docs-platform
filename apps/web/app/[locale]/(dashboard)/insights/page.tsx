@@ -139,7 +139,7 @@ export default function InsightsPage() {
                   ) : !subjectData || subjectData.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Chưa có dữ liệu</div>
                   ) : (
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <BarChart data={subjectData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                       <XAxis dataKey="name" tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} angle={-20} textAnchor="end" height={60} />
@@ -165,7 +165,7 @@ export default function InsightsPage() {
                   ) : storageDistribution.length === 0 ? (
                     <span className="text-sm text-muted-foreground">Chưa có dữ liệu</span>
                   ) : (
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <PieChart>
                       <Pie data={storageDistribution} cx="50%" cy="50%" innerRadius={70} outerRadius={110} paddingAngle={4} dataKey="value" strokeWidth={0}>
                         {storageDistribution.map((entry, index) => (

@@ -51,7 +51,7 @@ export function DocumentsBySubjectChart() {
           ) : chartData.length === 0 ? (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Chưa có dữ liệu</div>
           ) : (
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <BarChart data={chartData} layout="vertical" margin={{ left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} horizontal={false} />
               <XAxis type="number" tick={{ fill: '#71717a', fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -107,7 +107,7 @@ export function StorageDistributionChart() {
           ) : storageData.length === 0 ? (
             <span className="text-sm text-muted-foreground">Chưa có dữ liệu</span>
           ) : (
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <PieChart>
               <Pie
                 data={storageData}
@@ -175,7 +175,7 @@ export function UploadTimelineChart() {
           {loading ? (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Đang tải...</div>
           ) : (
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <AreaChart data={timelineData ?? []}>
               <defs>
                 <linearGradient id="limeGradient" x1="0" y1="0" x2="0" y2="1">

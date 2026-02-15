@@ -153,7 +153,7 @@ export default function DocumentsPage() {
           </div>
           <h3 className="font-medium mb-1">{t('documents.noDocuments')}</h3>
           <p className="text-sm text-muted-foreground mb-4">{t('documents.emptyDescription')}</p>
-          <Link href="/dashboard/semesters" className="btn btn-primary btn-sm">
+          <Link href="/semesters" className="btn btn-primary btn-sm">
             {t('semesters.title')}
           </Link>
         </div>
@@ -205,7 +205,7 @@ export default function DocumentsPage() {
                   </td>
                   <td className="hidden md:table-cell">
                     {doc.subject && (
-                      <Link href={`/dashboard/subjects/${doc.subject.id}`} className="badge badge-outline hover:bg-muted">
+                      <Link href={`/subjects/${doc.subject.id}`} className="badge badge-outline hover:bg-muted">
                         {doc.subject.name}
                       </Link>
                     )}
