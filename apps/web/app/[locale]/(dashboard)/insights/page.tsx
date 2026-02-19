@@ -29,7 +29,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useDocumentsBySubject, useDocuments, useSubjects } from '@/lib/hooks';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name?: string }>; label?: string }) => {
   if (active && payload && payload.length) {
@@ -61,6 +61,9 @@ export default function InsightsPage() {
   }, [allDocs]);
 
   const loading = subjectLoading || docsLoading || subjectsLoading;
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   return (
     <div className="space-y-6 fade-in">
@@ -133,11 +136,13 @@ export default function InsightsPage() {
                 <CardDescription>Số lượng tài liệu mỗi môn</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px]">
+                <div className="h-75">
                   {loading ? (
                     <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Đang tải...</div>
                   ) : !subjectData || subjectData.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Chưa có dữ liệu</div>
+                  ) : !mounted ? (
+                    <div className="flex items-center justify-center h-full"><div className="skeleton h-full w-full rounded-lg" /></div>
                   ) : (
                   <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <BarChart data={subjectData}>
@@ -159,11 +164,13 @@ export default function InsightsPage() {
                 <CardDescription>Tài liệu theo loại storage</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px] flex items-center justify-center">
+                <div className="h-75 flex items-center justify-center">
                   {loading ? (
                     <span className="text-sm text-muted-foreground">Đang tải...</span>
                   ) : storageDistribution.length === 0 ? (
                     <span className="text-sm text-muted-foreground">Chưa có dữ liệu</span>
+                  ) : !mounted ? (
+                    <div className="skeleton h-full w-full rounded-lg" />
                   ) : (
                   <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <PieChart>

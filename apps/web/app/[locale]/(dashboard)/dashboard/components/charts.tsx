@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   BarChart,
   Bar,
@@ -32,6 +33,8 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 
 export function DocumentsBySubjectChart() {
   const { data: subjectData, loading } = useDocumentsBySubject();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   const chartData = (subjectData ?? []).map((item) => ({
     name: item.name,
@@ -45,11 +48,13 @@ export function DocumentsBySubjectChart() {
         <CardDescription>Phân bố tài liệu trong các môn</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[280px]">
+        <div className="h-70">
           {loading ? (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Đang tải...</div>
           ) : chartData.length === 0 ? (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Chưa có dữ liệu</div>
+          ) : !mounted ? (
+            <div className="skeleton h-full w-full rounded-lg" />
           ) : (
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <BarChart data={chartData} layout="vertical" margin={{ left: 20 }}>
@@ -69,6 +74,8 @@ export function DocumentsBySubjectChart() {
 
 export function StorageDistributionChart() {
   const { data: storageStats, loading } = useStorageStats();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   const STORAGE_COLORS: Record<string, string> = {
     SUPABASE: '#01FF80',
@@ -101,11 +108,13 @@ export function StorageDistributionChart() {
         <CardDescription>Phân bố dung lượng lưu trữ</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[280px] flex items-center justify-center">
+        <div className="h-70 flex items-center justify-center">
           {loading ? (
             <span className="text-sm text-muted-foreground">Đang tải...</span>
           ) : storageData.length === 0 ? (
             <span className="text-sm text-muted-foreground">Chưa có dữ liệu</span>
+          ) : !mounted ? (
+            <div className="skeleton h-full w-full rounded-lg" />
           ) : (
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <PieChart>
@@ -163,6 +172,8 @@ export function StorageDistributionChart() {
 
 export function UploadTimelineChart() {
   const { data: timelineData, loading } = useUploadTimeline(7);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   return (
     <Card className="col-span-full">
@@ -171,9 +182,11 @@ export function UploadTimelineChart() {
         <CardDescription>Số tài liệu tải lên 7 ngày gần nhất</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[200px]">
+        <div className="h-50">
           {loading ? (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Đang tải...</div>
+          ) : !mounted ? (
+            <div className="skeleton h-full w-full rounded-lg" />
           ) : (
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <AreaChart data={timelineData ?? []}>

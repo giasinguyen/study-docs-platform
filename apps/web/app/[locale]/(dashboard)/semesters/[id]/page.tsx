@@ -394,4 +394,6 @@ export default function SemesterDetailPage({ params }: SemesterDetailPageProps) 
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>    </div>
+  );
+}
