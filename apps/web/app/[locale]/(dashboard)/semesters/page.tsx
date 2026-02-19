@@ -266,7 +266,7 @@ export default function SemestersPage() {
                             )}
                           >
                             {/* Gradient header */}
-                            <div className={cn('px-4 pt-4 pb-3 bg-gradient-to-br', cfg.gradient)}>
+                            <div className={cn('px-4 pt-4 pb-3 bg-linear-to-br', cfg.gradient)}>
                               <div className="flex items-start justify-between">
                                 <div className={cn(
                                   'w-10 h-10 rounded-xl flex items-center justify-center',

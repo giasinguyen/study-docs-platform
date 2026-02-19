@@ -2,7 +2,6 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
   ChevronRight,
@@ -19,7 +18,6 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import type { Semester, Subject } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -46,19 +44,20 @@ const COLORS = [
 export default function SemesterDetailPage({ params }: SemesterDetailPageProps) {
   const { id } = use(params);
   const t = useTranslations();
-  const router = useRouter();
   const [semester, setSemester] = useState<Semester | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     description: '',
-    color: COLORS[0],
+    color: COLORS[0]!,
   });
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const supabase = createClient();
 
@@ -68,15 +67,11 @@ export default function SemesterDetailPage({ params }: SemesterDetailPageProps) 
 
   async function fetchData() {
     setLoading(true);
-    
     const [semesterRes, subjectsRes] = await Promise.all([
       supabase.from('semesters').select('*').eq('id', id).single(),
       supabase.from('subjects').select('*').eq('semester_id', id).order('name'),
     ]);
-
-    if (semesterRes.data) {
-      setSemester(semesterRes.data);
-    }
+    if (semesterRes.data) setSemester(semesterRes.data);
     setSubjects(subjectsRes.data || []);
     setLoading(false);
   }
@@ -84,21 +79,17 @@ export default function SemesterDetailPage({ params }: SemesterDetailPageProps) 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { setSaving(false); return; }
 
     if (editingSubject) {
-      await supabase
-        .from('subjects')
-        .update({
-          name: formData.name,
-          code: formData.code,
-          description: formData.description,
-          color: formData.color,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', editingSubject.id);
+      await supabase.from('subjects').update({
+        name: formData.name,
+        code: formData.code,
+        description: formData.description,
+        color: formData.color,
+        updated_at: new Date().toISOString(),
+      }).eq('id', editingSubject.id);
     } else {
       await supabase.from('subjects').insert({
         user_id: user.id,
@@ -113,19 +104,22 @@ export default function SemesterDetailPage({ params }: SemesterDetailPageProps) 
     setSaving(false);
     setShowModal(false);
     setEditingSubject(null);
-    setFormData({ name: '', code: '', description: '', color: COLORS[0] });
+    setFormData({ name: '', code: '', description: '', color: COLORS[0]! });
     fetchData();
   }
 
-  async function handleDelete(subjectId: string) {
-    if (!confirm(t('common.confirmDelete'))) return;
-    await supabase.from('subjects').delete().eq('id', subjectId);
+  async function handleDeleteConfirm() {
+    if (!deleteId) return;
+    setDeleting(true);
+    await supabase.from('subjects').delete().eq('id', deleteId);
+    setDeleting(false);
+    setDeleteId(null);
     fetchData();
   }
 
   function openCreateModal() {
     setEditingSubject(null);
-    setFormData({ name: '', code: '', description: '', color: COLORS[Math.floor(Math.random() * COLORS.length)] });
+    setFormData({ name: '', code: '', description: '', color: COLORS[Math.floor(Math.random() * COLORS.length)]! });
     setShowModal(true);
   }
 
@@ -142,12 +136,15 @@ export default function SemesterDetailPage({ params }: SemesterDetailPageProps) 
 
   if (loading) {
     return (
-      <div className="space-y-4 fade-in">
-        <div className="skeleton h-8 w-48 rounded" />
-        <div className="skeleton h-4 w-64 rounded" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="skeleton h-32 rounded-lg" />
+      <div className="space-y-6 fade-in">
+        <div className="space-y-2">
+          <div className="skeleton h-4 w-40 rounded" />
+          <div className="skeleton h-8 w-56 rounded-lg" />
+          <div className="skeleton h-4 w-32 rounded" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="skeleton h-40 rounded-2xl" />
           ))}
         </div>
       </div>
@@ -156,175 +153,245 @@ export default function SemesterDetailPage({ params }: SemesterDetailPageProps) 
 
   if (!semester) {
     return (
-      <div className="empty-state py-16">
-        <h3 className="font-medium mb-1">{t('semesters.notFound')}</h3>
-        <Link href="/semesters" className="btn btn-primary btn-sm mt-4">
-          {t('semesters.backToList')}
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+          <CalendarDays className="w-7 h-7 text-muted-foreground" />
+        </div>
+        <h3 className="font-semibold mb-1">{t('semesters.notFound')}</h3>
+        <Link href="/semesters">
+          <Button variant="lime" size="sm" className="mt-4">
+            {t('semesters.backToList')}
+          </Button>
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 fade-in">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/semesters" className="hover:text-foreground">
+    <div className="space-y-6 fade-in">
+      {/* ── Breadcrumb ── */}
+      <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <Link href="/semesters" className="hover:text-foreground transition-colors flex items-center gap-1">
+          <CalendarDays className="w-3.5 h-3.5" />
           {t('semesters.title')}
         </Link>
-        <span>/</span>
-        <span className="text-foreground">{semester.name}</span>
-      </div>
+        <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+        <span className="text-foreground font-medium truncate">{semester.name}</span>
+      </nav>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">{semester.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            {subjects.length} {t('subjects.title').toLowerCase()}
-          </p>
-        </div>
-        <button onClick={openCreateModal} className="btn btn-primary">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          {t('subjects.create')}
-        </button>
-      </div>
-
-      {/* Subjects Grid */}
-      {subjects.length === 0 ? (
-        <div className="empty-state py-16">
-          <div className="empty-state-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-8 h-8 text-muted-foreground">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-            </svg>
+      {/* ── Page Header ── */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-primary/15 border border-primary/20 flex items-center justify-center shadow-sm">
+            <GraduationCap className="w-6 h-6 text-primary" />
           </div>
-          <h3 className="font-medium mb-1">{t('subjects.empty')}</h3>
-          <p className="text-sm text-muted-foreground mb-4">{t('subjects.emptyDescription')}</p>
-          <button onClick={openCreateModal} className="btn btn-primary btn-sm">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{semester.name}</h1>
+            <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5" />
+              {subjects.length} {t('subjects.title').toLowerCase()}
+            </p>
+          </div>
+        </div>
+        <Button onClick={openCreateModal} variant="lime" className="shadow-sm shadow-primary/20">
+          <Plus className="w-4 h-4" />
+          {t('subjects.create')}
+        </Button>
+      </div>
+
+      {/* ── Subjects Grid ── */}
+      {subjects.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-20 h-20 rounded-3xl bg-primary/10 border border-primary/15 flex items-center justify-center mb-5 shadow-sm">
+            <BookOpen className="w-9 h-9 text-primary/60" />
+          </div>
+          <h3 className="text-lg font-semibold mb-1">{t('subjects.empty')}</h3>
+          <p className="text-sm text-muted-foreground mb-6 max-w-xs">{t('subjects.emptyDescription')}</p>
+          <Button onClick={openCreateModal} variant="lime">
+            <Plus className="w-4 h-4" />
             {t('subjects.create')}
-          </button>
+          </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {subjects.map((subject) => (
-            <Link
-              key={subject.id}
-              href={`/subjects/${subject.id}`}
-              className="card p-4 hover:border-muted-foreground transition-colors group"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: `${subject.color}20` }}
+            <div key={subject.id} className="group relative">
+              <Link
+                href={`/subjects/${subject.id}`}
+                className="block rounded-2xl border border-border bg-card overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                style={{ borderTopColor: subject.color, borderTopWidth: '3px' }}
+              >
+                {/* Card header */}
+                <div className="px-4 pt-4 pb-3">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center"
+                      style={{ backgroundColor: `${subject.color}20` }}
+                    >
+                      <BookOpen className="w-5 h-5" style={{ color: subject.color }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-base leading-snug truncate group-hover:text-primary transition-colors">
+                        {subject.name}
+                      </h3>
+                      {subject.code && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <Hash className="w-3 h-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground font-mono">{subject.code}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Description */}
+                {subject.description && (
+                  <div className="px-4 pb-3">
+                    <p className="text-sm text-muted-foreground truncate-2 leading-relaxed">
+                      {subject.description}
+                    </p>
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div className="px-4 pb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <FileText className="w-3 h-3" />
+                  <span>Xem tài liệu</span>
+                  <ChevronRight className="w-3 h-3 ml-auto" />
+                </div>
+              </Link>
+
+              {/* Action buttons */}
+              <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                <button
+                  onClick={(e) => { e.preventDefault(); openEditModal(subject); }}
+                  className="w-7 h-7 rounded-lg bg-background/90 backdrop-blur-sm border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors shadow-sm"
+                  title={t('common.edit')}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke={subject.color} className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-                  </svg>
-                </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={(e) => { e.preventDefault(); openEditModal(subject); }}
-                    className="icon-btn"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={(e) => { e.preventDefault(); handleDelete(subject.id); }}
-                    className="icon-btn text-destructive"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                    </svg>
-                  </button>
-                </div>
+                  <Pencil className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={(e) => { e.preventDefault(); setDeleteId(subject.id); }}
+                  className="w-7 h-7 rounded-lg bg-background/90 backdrop-blur-sm border border-border flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors shadow-sm"
+                  title={t('common.delete')}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
               </div>
-              <h3 className="font-medium">{subject.name}</h3>
-              {subject.code && (
-                <p className="text-xs text-muted-foreground">{subject.code}</p>
-              )}
-              {subject.description && (
-                <p className="text-sm text-muted-foreground mt-1 truncate-2">{subject.description}</p>
-              )}
-            </Link>
+            </div>
           ))}
         </div>
       )}
 
-      {/* Create/Edit Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="font-semibold">
-                {editingSubject ? t('subjects.edit') : t('subjects.create')}
-              </h3>
+      {/* ── Create / Edit Subject Dialog ── */}
+      <Dialog open={showModal} onOpenChange={(open) => { if (!open) { setShowModal(false); setEditingSubject(null); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-primary" />
+              {editingSubject ? t('subjects.edit') : t('subjects.create')}
+            </DialogTitle>
+            <DialogDescription>
+              {editingSubject ? 'Cập nhật thông tin môn học' : 'Thêm môn học mới vào học kỳ này'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label>{t('subjects.name')} <span className="text-destructive">*</span></Label>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="VD: Giải tích"
+                required
+              />
             </div>
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t('subjects.name')} *</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="input"
-                    placeholder="e.g. Calculus"
-                    required
+
+            <div className="space-y-1.5">
+              <Label>{t('subjects.code')}</Label>
+              <Input
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                placeholder="VD: MATH101"
+                className="font-mono"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>{t('subjects.description')}</Label>
+              <Textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={2}
+                placeholder={t('subjects.descriptionPlaceholder')}
+                className="resize-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5" />
+                {t('subjects.color')}
+              </Label>
+              <div className="flex flex-wrap gap-2 p-3 bg-muted/40 rounded-xl border border-border">
+                {COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, color })}
+                    className={cn(
+                      'w-7 h-7 rounded-full border-2 transition-all duration-150',
+                      formData.color === color
+                        ? 'border-foreground scale-110 shadow-md'
+                        : 'border-transparent hover:scale-105',
+                    )}
+                    style={{ backgroundColor: color }}
+                    title={color}
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t('subjects.code')}</label>
-                  <input
-                    type="text"
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    className="input"
-                    placeholder="e.g. MATH101"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t('subjects.description')}</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="input"
-                    rows={2}
-                    placeholder={t('subjects.descriptionPlaceholder')}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t('subjects.color')}</label>
-                  <div className="flex flex-wrap gap-2">
-                    {COLORS.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, color })}
-                        className={`w-8 h-8 rounded-full border-2 transition-transform ${
-                          formData.color === color ? 'border-foreground scale-110' : 'border-transparent'
-                        }`}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                </div>
+                ))}
               </div>
-              <div className="modal-footer">
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">
-                  {t('common.cancel')}
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? t('common.loading') : t('common.save')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+              {/* Color preview */}
+              <div
+                className="h-1.5 rounded-full transition-colors duration-200"
+                style={{ backgroundColor: formData.color }}
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setShowModal(false); setEditingSubject(null); }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" variant="lime" disabled={saving}>
+                {saving ? t('common.loading') : t('common.save')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Confirmation Dialog ── */}
+      <Dialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="w-4 h-4" />
+              Xóa môn học
+            </DialogTitle>
+            <DialogDescription>
+              Bạn có chắc muốn xóa môn học này? Tất cả tài liệu liên quan sẽ bị xóa vĩnh viễn.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => setDeleteId(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm} disabled={deleting}>
+              {deleting ? 'Đang xóa...' : t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
