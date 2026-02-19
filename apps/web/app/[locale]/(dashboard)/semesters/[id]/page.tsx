@@ -4,8 +4,34 @@ import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import {
+  ChevronRight,
+  Plus,
+  Pencil,
+  Trash2,
+  BookOpen,
+  Hash,
+  Palette,
+  FileText,
+  CalendarDays,
+  GraduationCap,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { Semester, Subject } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 interface SemesterDetailPageProps {
   params: Promise<{ id: string }>;

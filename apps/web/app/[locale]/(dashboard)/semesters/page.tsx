@@ -3,14 +3,73 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+import {
+  CalendarDays,
+  Plus,
+  Pencil,
+  Trash2,
+  BookOpen,
+  GraduationCap,
+  Sun,
+  ChevronRight,
+  Layers,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { Semester } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+
+const SEMESTER_CONFIG = {
+  1: {
+    label: 'Học kỳ 1',
+    icon: BookOpen,
+    gradient: 'from-blue-500/20 to-indigo-500/10',
+    border: 'border-blue-500/30',
+    badge: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
+    dot: 'bg-blue-400',
+  },
+  2: {
+    label: 'Học kỳ 2',
+    icon: GraduationCap,
+    gradient: 'from-violet-500/20 to-purple-500/10',
+    border: 'border-violet-500/30',
+    badge: 'bg-violet-500/15 text-violet-400 border-violet-500/20',
+    dot: 'bg-violet-400',
+  },
+  3: {
+    label: 'Học kỳ hè',
+    icon: Sun,
+    gradient: 'from-amber-500/20 to-orange-500/10',
+    border: 'border-amber-500/30',
+    badge: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+    dot: 'bg-amber-400',
+  },
+} as const;
 
 export default function SemestersPage() {
   const t = useTranslations();
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editingSemester, setEditingSemester] = useState<Semester | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -18,6 +77,7 @@ export default function SemestersPage() {
     semester_number: 1 as 1 | 2 | 3,
   });
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const supabase = createClient();
 
@@ -41,7 +101,7 @@ export default function SemestersPage() {
     setSaving(true);
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { setSaving(false); return; }
 
     if (editingSemester) {
       await supabase
@@ -69,19 +129,19 @@ export default function SemestersPage() {
     fetchSemesters();
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm(t('common.confirmDelete'))) return;
-    await supabase.from('semesters').delete().eq('id', id);
+  async function handleDeleteConfirm() {
+    if (!deleteId) return;
+    setDeleting(true);
+    await supabase.from('semesters').delete().eq('id', deleteId);
+    setDeleting(false);
+    setDeleteId(null);
     fetchSemesters();
   }
 
   function openCreateModal() {
     setEditingSemester(null);
-    setFormData({
-      name: `${t('semesters.semester')} ${formData.semester_number} - ${formData.year}`,
-      year: new Date().getFullYear(),
-      semester_number: 1,
-    });
+    const year = new Date().getFullYear();
+    setFormData({ name: `Học kỳ 1 - ${year}`, year, semester_number: 1 });
     setShowModal(true);
   }
 
@@ -95,14 +155,10 @@ export default function SemestersPage() {
     setShowModal(true);
   }
 
-  const getSemesterLabel = (num: number) => {
-    switch (num) {
-      case 1: return t('semesters.semester1');
-      case 2: return t('semesters.semester2');
-      case 3: return t('semesters.summer');
-      default: return '';
-    }
-  };
+  function autoFillName(year: number, num: 1 | 2 | 3) {
+    const cfg = SEMESTER_CONFIG[num];
+    setFormData((prev) => ({ ...prev, name: `${cfg.label} - ${year}`, year, semester_number: num }));
+  }
 
   // Group semesters by year
   const groupedSemesters = semesters.reduce((acc, sem) => {
@@ -111,161 +167,261 @@ export default function SemestersPage() {
     return acc;
   }, {} as Record<number, Semester[]>);
 
+  const currentYear = new Date().getFullYear();
+
   return (
-    <div className="space-y-4 fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">{t('semesters.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('semesters.description')}</p>
+    <div className="space-y-6 fade-in">
+      {/* ── Page Header ── */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-primary/15 border border-primary/20 flex items-center justify-center shadow-sm">
+            <CalendarDays className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{t('semesters.title')}</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">{t('semesters.description')}</p>
+          </div>
         </div>
-        <button onClick={openCreateModal} className="btn btn-primary">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          {t('semesters.create')}
-        </button>
+
+        <div className="flex items-center gap-3">
+          {!loading && semesters.length > 0 && (
+            <div className="hidden sm:flex items-center gap-2">
+              <span className="flex items-center gap-1.5 text-sm text-muted-foreground bg-muted/60 rounded-lg px-3 py-1.5 border border-border">
+                <Layers className="w-3.5 h-3.5" />
+                {semesters.length} học kỳ
+              </span>
+              <span className="flex items-center gap-1.5 text-sm text-muted-foreground bg-muted/60 rounded-lg px-3 py-1.5 border border-border">
+                <CalendarDays className="w-3.5 h-3.5" />
+                {Object.keys(groupedSemesters).length} năm học
+              </span>
+            </div>
+          )}
+          <Button onClick={openCreateModal} variant="lime" className="shadow-sm shadow-primary/20">
+            <Plus className="w-4 h-4" />
+            {t('semesters.create')}
+          </Button>
+        </div>
       </div>
 
-      {/* Content */}
+      {/* ── Content ── */}
       {loading ? (
-        <div className="space-y-4">
+        <div className="space-y-8">
           {[1, 2].map((i) => (
-            <div key={i} className="card p-4">
-              <div className="skeleton h-6 w-32 rounded mb-4" />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div key={i} className="space-y-3">
+              <div className="skeleton h-5 w-28 rounded-md" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[1, 2, 3].map((j) => (
-                  <div key={j} className="skeleton h-24 rounded-lg" />
+                  <div key={j} className="skeleton h-36 rounded-2xl" />
                 ))}
               </div>
             </div>
           ))}
         </div>
       ) : semesters.length === 0 ? (
-        <div className="empty-state py-16">
-          <div className="empty-state-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-8 h-8 text-muted-foreground">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-            </svg>
+        /* ── Empty State ── */
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-20 h-20 rounded-3xl bg-primary/10 border border-primary/15 flex items-center justify-center mb-5 shadow-sm">
+            <CalendarDays className="w-9 h-9 text-primary/60" />
           </div>
-          <h3 className="font-medium mb-1">{t('semesters.empty')}</h3>
-          <p className="text-sm text-muted-foreground mb-4">{t('semesters.emptyDescription')}</p>
-          <button onClick={openCreateModal} className="btn btn-primary btn-sm">
+          <h3 className="text-lg font-semibold mb-1">{t('semesters.empty')}</h3>
+          <p className="text-sm text-muted-foreground mb-6 max-w-xs">{t('semesters.emptyDescription')}</p>
+          <Button onClick={openCreateModal} variant="lime">
+            <Plus className="w-4 h-4" />
             {t('semesters.create')}
-          </button>
+          </Button>
         </div>
       ) : (
-        <div className="space-y-6">
+        /* ── Grouped by Year ── */
+        <div className="space-y-8">
           {Object.entries(groupedSemesters)
             .sort(([a], [b]) => Number(b) - Number(a))
             .map(([year, yearSemesters]) => (
-              <div key={year}>
-                <h2 className="text-lg font-semibold mb-3">{t('semesters.year')} {year}</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {yearSemesters.map((semester) => (
-                    <Link
-                      key={semester.id}
-                      href={`/semesters/${semester.id}`}
-                      className="card p-4 hover:border-muted-foreground transition-colors group"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                          </svg>
-                        </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => { e.preventDefault(); openEditModal(semester); }}
-                            className="icon-btn"
+              <div key={year} className="space-y-3">
+                {/* Year heading */}
+                <div className="flex items-center gap-3">
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    Năm học {year}–{Number(year) + 1}
+                  </h2>
+                  {Number(year) === currentYear && (
+                    <Badge variant="lime" className="text-[10px] h-5">Hiện tại</Badge>
+                  )}
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+
+                {/* Semester cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {yearSemesters
+                    .sort((a, b) => a.semester_number - b.semester_number)
+                    .map((semester) => {
+                      const cfg = SEMESTER_CONFIG[semester.semester_number as 1 | 2 | 3] ?? SEMESTER_CONFIG[1];
+                      const Icon = cfg.icon;
+                      return (
+                        <div key={semester.id} className="group relative">
+                          <Link
+                            href={`/semesters/${semester.id}`}
+                            className={cn(
+                              'block rounded-2xl border bg-card overflow-hidden transition-all duration-200',
+                              'hover:shadow-lg hover:-translate-y-0.5',
+                              cfg.border,
+                            )}
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={(e) => { e.preventDefault(); handleDelete(semester.id); }}
-                            className="icon-btn text-destructive"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                            </svg>
-                          </button>
+                            {/* Gradient header */}
+                            <div className={cn('px-4 pt-4 pb-3 bg-gradient-to-br', cfg.gradient)}>
+                              <div className="flex items-start justify-between">
+                                <div className={cn(
+                                  'w-10 h-10 rounded-xl flex items-center justify-center',
+                                  'bg-background/60 backdrop-blur-sm border border-border/50',
+                                )}>
+                                  <Icon className="w-5 h-5 text-foreground/80" />
+                                </div>
+                                <span className={cn(
+                                  'text-[11px] font-semibold px-2.5 py-1 rounded-full border',
+                                  cfg.badge,
+                                )}>
+                                  {cfg.label}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Card body */}
+                            <div className="px-4 py-3">
+                              <h3 className="font-semibold text-base leading-snug mb-0.5 group-hover:text-primary transition-colors">
+                                {semester.name}
+                              </h3>
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <span className={cn('w-1.5 h-1.5 rounded-full', cfg.dot)} />
+                                Năm {year}
+                              </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-4 pb-3 flex items-center">
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <ChevronRight className="w-3 h-3" />
+                                Xem môn học
+                              </span>
+                            </div>
+                          </Link>
+
+                          {/* Action buttons (hover) */}
+                          <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                            <button
+                              onClick={(e) => { e.preventDefault(); openEditModal(semester); }}
+                              className="w-7 h-7 rounded-lg bg-background/90 backdrop-blur-sm border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors shadow-sm"
+                              title={t('common.edit')}
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.preventDefault(); setDeleteId(semester.id); }}
+                              className="w-7 h-7 rounded-lg bg-background/90 backdrop-blur-sm border border-border flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors shadow-sm"
+                              title={t('common.delete')}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <h3 className="font-medium">{semester.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {getSemesterLabel(semester.semester_number)}
-                      </p>
-                    </Link>
-                  ))}
+                      );
+                    })}
                 </div>
               </div>
             ))}
         </div>
       )}
 
-      {/* Create/Edit Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="font-semibold">
-                {editingSemester ? t('semesters.edit') : t('semesters.create')}
-              </h3>
+      {/* ── Create / Edit Dialog ── */}
+      <Dialog open={showModal} onOpenChange={(open) => { if (!open) { setShowModal(false); setEditingSemester(null); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-primary" />
+              {editingSemester ? t('semesters.edit') : t('semesters.create')}
+            </DialogTitle>
+            <DialogDescription>
+              {editingSemester ? 'Cập nhật thông tin học kỳ' : 'Điền thông tin để tạo học kỳ mới'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>{t('semesters.year')}</Label>
+                <Input
+                  type="number"
+                  value={formData.year}
+                  onChange={(e) => autoFillName(parseInt(e.target.value), formData.semester_number)}
+                  min={2000}
+                  max={2100}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t('semesters.semesterNumber')}</Label>
+                <Select
+                  value={String(formData.semester_number)}
+                  onValueChange={(v) => autoFillName(formData.year, parseInt(v) as 1 | 2 | 3)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">{t('semesters.semester1')}</SelectItem>
+                    <SelectItem value="2">{t('semesters.semester2')}</SelectItem>
+                    <SelectItem value="3">{t('semesters.summer')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1.5">{t('semesters.year')}</label>
-                    <input
-                      type="number"
-                      value={formData.year}
-                      onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
-                      className="input"
-                      min={2000}
-                      max={2100}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1.5">{t('semesters.semesterNumber')}</label>
-                    <select
-                      value={formData.semester_number}
-                      onChange={(e) => setFormData({ ...formData, semester_number: parseInt(e.target.value) as 1 | 2 | 3 })}
-                      className="input select"
-                    >
-                      <option value={1}>{t('semesters.semester1')}</option>
-                      <option value={2}>{t('semesters.semester2')}</option>
-                      <option value={3}>{t('semesters.summer')}</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t('semesters.name')}</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="input"
-                    placeholder={`${t('semesters.semester')} 1 - 2026`}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">
-                  {t('common.cancel')}
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? t('common.loading') : t('common.save')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+            <div className="space-y-1.5">
+              <Label>{t('semesters.name')}</Label>
+              <Input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder={`Học kỳ 1 - ${new Date().getFullYear()}`}
+                required
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setShowModal(false); setEditingSemester(null); }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" variant="lime" disabled={saving}>
+                {saving ? t('common.loading') : t('common.save')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Confirmation Dialog ── */}
+      <Dialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="w-4 h-4" />
+              Xóa học kỳ
+            </DialogTitle>
+            <DialogDescription>
+              Bạn có chắc muốn xóa học kỳ này? Tất cả môn học và tài liệu liên quan sẽ bị xóa vĩnh viễn.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => setDeleteId(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm} disabled={deleting}>
+              {deleting ? 'Đang xóa...' : t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
