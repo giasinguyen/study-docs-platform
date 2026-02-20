@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Settings, Shield, Bell, Palette, Globe, HardDrive, LogOut, Save } from 'lucide-react';
+import { User, Settings, Shield, Bell, Palette, Globe, HardDrive, LogOut, Save, Mail, Smartphone, Upload, Sparkles, Clock, Loader2 } from 'lucide-react';
 import { ThemeToggle } from '@/components';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter, Link } from '@/i18n/routing';
+import { useNotificationPreferences } from '@/lib/hooks/use-notification-preferences';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface ProfileSettingsModalProps {
@@ -32,9 +33,8 @@ export function ProfileSettingsModal({ open, onOpenChange, user }: ProfileSettin
   const [bio, setBio] = useState(user.user_metadata?.bio || '');
   const [avatarUrl, setAvatarUrl] = useState(user.user_metadata?.avatar_url || '');
 
-  // Settings state
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [pushNotifications, setPushNotifications] = useState(true);
+  // Notification preferences from database
+  const { preferences: notifPrefs, loading: notifLoading, saving: notifSaving, updatePreference } = useNotificationPreferences();
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -329,46 +329,174 @@ export function ProfileSettingsModal({ open, onOpenChange, user }: ProfileSettin
                   <CardTitle className="text-base flex items-center gap-2">
                     <Bell className="size-4 text-primary" />
                     Thông báo
+                    {notifSaving && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
                   </CardTitle>
                   <CardDescription>Quản lý tùy chọn thông báo</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Email thông báo</Label>
-                      <p className="text-xs text-muted-foreground">Nhận thông báo qua email</p>
+                <CardContent className="space-y-6">
+                  {notifLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
                     </div>
-                    <button
-                      onClick={() => setEmailNotifications(!emailNotifications)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                        emailNotifications ? 'bg-primary' : 'bg-muted'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 rounded-full bg-white shadow-md transform transition-transform ${
-                          emailNotifications ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Push notifications</Label>
-                      <p className="text-xs text-muted-foreground">Nhận thông báo đẩy</p>
-                    </div>
-                    <button
-                      onClick={() => setPushNotifications(!pushNotifications)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                        pushNotifications ? 'bg-primary' : 'bg-muted'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 rounded-full bg-white shadow-md transform transition-transform ${
-                          pushNotifications ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
+                  ) : (
+                    <>
+                      {/* Email Notifications Section */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Mail className="size-4 text-blue-500" />
+                            <div className="space-y-0.5">
+                              <Label className="font-semibold">Email thông báo</Label>
+                              <p className="text-xs text-muted-foreground">Nhận thông báo qua email</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => updatePreference('email_enabled', !notifPrefs?.email_enabled)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                              notifPrefs?.email_enabled ? 'bg-primary' : 'bg-muted'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 rounded-full bg-white shadow-md transform transition-transform ${
+                                notifPrefs?.email_enabled ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                        {notifPrefs?.email_enabled && (
+                          <div className="ml-6 pl-4 border-l-2 border-border space-y-2">
+                            <div className="flex items-center justify-between py-1">
+                              <div className="flex items-center gap-2">
+                                <Upload className="size-3.5 text-muted-foreground" />
+                                <span className="text-sm">Khi tải lên tài liệu</span>
+                              </div>
+                              <button
+                                onClick={() => updatePreference('email_on_upload', !notifPrefs?.email_on_upload)}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                  notifPrefs?.email_on_upload ? 'bg-primary' : 'bg-muted'
+                                }`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transform transition-transform ${
+                                  notifPrefs?.email_on_upload ? 'translate-x-4.5' : 'translate-x-0.5'
+                                }`} />
+                              </button>
+                            </div>
+                            <div className="flex items-center justify-between py-1">
+                              <div className="flex items-center gap-2">
+                                <Sparkles className="size-3.5 text-muted-foreground" />
+                                <span className="text-sm">Khi AI hoàn thành phân tích</span>
+                              </div>
+                              <button
+                                onClick={() => updatePreference('email_on_ai_complete', !notifPrefs?.email_on_ai_complete)}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                  notifPrefs?.email_on_ai_complete ? 'bg-primary' : 'bg-muted'
+                                }`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transform transition-transform ${
+                                  notifPrefs?.email_on_ai_complete ? 'translate-x-4.5' : 'translate-x-0.5'
+                                }`} />
+                              </button>
+                            </div>
+                            <div className="flex items-center justify-between py-1">
+                              <div className="flex items-center gap-2">
+                                <Clock className="size-3.5 text-muted-foreground" />
+                                <span className="text-sm">Nhắc nhở ôn tập</span>
+                              </div>
+                              <button
+                                onClick={() => updatePreference('email_on_reminder', !notifPrefs?.email_on_reminder)}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                  notifPrefs?.email_on_reminder ? 'bg-primary' : 'bg-muted'
+                                }`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transform transition-transform ${
+                                  notifPrefs?.email_on_reminder ? 'translate-x-4.5' : 'translate-x-0.5'
+                                }`} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="h-px bg-border" />
+
+                      {/* Push Notifications Section */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Smartphone className="size-4 text-violet-500" />
+                            <div className="space-y-0.5">
+                              <Label className="font-semibold">Push notifications</Label>
+                              <p className="text-xs text-muted-foreground">Nhận thông báo đẩy trên trình duyệt</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => updatePreference('push_enabled', !notifPrefs?.push_enabled)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                              notifPrefs?.push_enabled ? 'bg-primary' : 'bg-muted'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 rounded-full bg-white shadow-md transform transition-transform ${
+                                notifPrefs?.push_enabled ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                        {notifPrefs?.push_enabled && (
+                          <div className="ml-6 pl-4 border-l-2 border-border space-y-2">
+                            <div className="flex items-center justify-between py-1">
+                              <div className="flex items-center gap-2">
+                                <Upload className="size-3.5 text-muted-foreground" />
+                                <span className="text-sm">Khi tải lên tài liệu</span>
+                              </div>
+                              <button
+                                onClick={() => updatePreference('push_on_upload', !notifPrefs?.push_on_upload)}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                  notifPrefs?.push_on_upload ? 'bg-primary' : 'bg-muted'
+                                }`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transform transition-transform ${
+                                  notifPrefs?.push_on_upload ? 'translate-x-4.5' : 'translate-x-0.5'
+                                }`} />
+                              </button>
+                            </div>
+                            <div className="flex items-center justify-between py-1">
+                              <div className="flex items-center gap-2">
+                                <Sparkles className="size-3.5 text-muted-foreground" />
+                                <span className="text-sm">Khi AI hoàn thành phân tích</span>
+                              </div>
+                              <button
+                                onClick={() => updatePreference('push_on_ai_complete', !notifPrefs?.push_on_ai_complete)}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                  notifPrefs?.push_on_ai_complete ? 'bg-primary' : 'bg-muted'
+                                }`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transform transition-transform ${
+                                  notifPrefs?.push_on_ai_complete ? 'translate-x-4.5' : 'translate-x-0.5'
+                                }`} />
+                              </button>
+                            </div>
+                            <div className="flex items-center justify-between py-1">
+                              <div className="flex items-center gap-2">
+                                <Clock className="size-3.5 text-muted-foreground" />
+                                <span className="text-sm">Nhắc nhở ôn tập</span>
+                              </div>
+                              <button
+                                onClick={() => updatePreference('push_on_reminder', !notifPrefs?.push_on_reminder)}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                  notifPrefs?.push_on_reminder ? 'bg-primary' : 'bg-muted'
+                                }`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transform transition-transform ${
+                                  notifPrefs?.push_on_reminder ? 'translate-x-4.5' : 'translate-x-0.5'
+                                }`} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 

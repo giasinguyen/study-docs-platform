@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { Search, Bell, Settings, LogOut, User, Command } from 'lucide-react';
+import { Search, Settings, LogOut, User, Command } from 'lucide-react';
 import { ProfileSettingsModal } from './profile-settings-modal';
+import { NotificationCenter } from './notification-center';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface HeaderProps {
@@ -47,10 +48,7 @@ export function Header({ user }: HeaderProps) {
       {/* Actions */}
       <div className="flex items-center gap-1">
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="size-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
-        </Button>
+        <NotificationCenter />
 
         <LanguageSwitcher />
         <ThemeToggle />
