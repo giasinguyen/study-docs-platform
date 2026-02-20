@@ -32,7 +32,7 @@ import {
   Cloud,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { uploadDocument } from '@/lib/api-client';
+import { shouldUseBackendStorage, uploadToStorage } from '@/lib/api-client';
 import { formatFileSize } from '@/lib/utils';
 import type { Semester, Subject } from '@/lib/types';
 
@@ -47,6 +47,48 @@ interface UploadModalProps {
 }
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
+
+// Sanitize filename for Supabase Storage (remove Vietnamese diacritics and special chars)
+function sanitizeFileName(fileName: string): string {
+  const vietnameseMap: Record<string, string> = {
+    'à': 'a', 'á': 'a', 'ả': 'a', 'ã': 'a', 'ạ': 'a',
+    'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ẳ': 'a', 'ẵ': 'a', 'ặ': 'a',
+    'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ẩ': 'a', 'ẫ': 'a', 'ậ': 'a',
+    'đ': 'd',
+    'è': 'e', 'é': 'e', 'ẻ': 'e', 'ẽ': 'e', 'ẹ': 'e',
+    'ê': 'e', 'ề': 'e', 'ế': 'e', 'ể': 'e', 'ễ': 'e', 'ệ': 'e',
+    'ì': 'i', 'í': 'i', 'ỉ': 'i', 'ĩ': 'i', 'ị': 'i',
+    'ò': 'o', 'ó': 'o', 'ỏ': 'o', 'õ': 'o', 'ọ': 'o',
+    'ô': 'o', 'ồ': 'o', 'ố': 'o', 'ổ': 'o', 'ỗ': 'o', 'ộ': 'o',
+    'ơ': 'o', 'ờ': 'o', 'ớ': 'o', 'ở': 'o', 'ỡ': 'o', 'ợ': 'o',
+    'ù': 'u', 'ú': 'u', 'ủ': 'u', 'ũ': 'u', 'ụ': 'u',
+    'ư': 'u', 'ừ': 'u', 'ứ': 'u', 'ử': 'u', 'ữ': 'u', 'ự': 'u',
+    'ỳ': 'y', 'ý': 'y', 'ỷ': 'y', 'ỹ': 'y', 'ỵ': 'y',
+    'À': 'A', 'Á': 'A', 'Ả': 'A', 'Ã': 'A', 'Ạ': 'A',
+    'Ă': 'A', 'Ằ': 'A', 'Ắ': 'A', 'Ẳ': 'A', 'Ẵ': 'A', 'Ặ': 'A',
+    'Â': 'A', 'Ầ': 'A', 'Ấ': 'A', 'Ẩ': 'A', 'Ẫ': 'A', 'Ậ': 'A',
+    'Đ': 'D',
+    'È': 'E', 'É': 'E', 'Ẻ': 'E', 'Ẽ': 'E', 'Ẹ': 'E',
+    'Ê': 'E', 'Ề': 'E', 'Ế': 'E', 'Ể': 'E', 'Ễ': 'E', 'Ệ': 'E',
+    'Ì': 'I', 'Í': 'I', 'Ỉ': 'I', 'Ĩ': 'I', 'Ị': 'I',
+    'Ò': 'O', 'Ó': 'O', 'Ỏ': 'O', 'Õ': 'O', 'Ọ': 'O',
+    'Ô': 'O', 'Ồ': 'O', 'Ố': 'O', 'Ổ': 'O', 'Ỗ': 'O', 'Ộ': 'O',
+    'Ơ': 'O', 'Ờ': 'O', 'Ớ': 'O', 'Ở': 'O', 'Ỡ': 'O', 'Ợ': 'O',
+    'Ù': 'U', 'Ú': 'U', 'Ủ': 'U', 'Ũ': 'U', 'Ụ': 'U',
+    'Ư': 'U', 'Ừ': 'U', 'Ứ': 'U', 'Ử': 'U', 'Ữ': 'U', 'Ự': 'U',
+    'Ỳ': 'Y', 'Ý': 'Y', 'Ỷ': 'Y', 'Ỹ': 'Y', 'Ỵ': 'Y',
+  };
+
+  let result = '';
+  for (const char of fileName) {
+    result += vietnameseMap[char] || char;
+  }
+
+  return result
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9_.-]/g, '')
+    .replace(/_+/g, '_');
+}
 
 export function UploadModal({
   open,
@@ -146,19 +188,67 @@ export function UploadModal({
     setErrorMsg('');
 
     try {
-      // Simulate progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => Math.min(prev + 10, 90));
-      }, 500);
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Bạn chưa đăng nhập');
+      }
 
-      await uploadDocument({
-        file,
-        title: title || file.name,
-        description: description || undefined,
-        subjectId: selectedSubject,
+      setUploadProgress(20);
+
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      const sanitizedName = sanitizeFileName(file.name);
+      const filePath = `${user.id}/${selectedSubject}/${Date.now()}_${sanitizedName}`;
+
+      let finalFilePath = filePath;
+
+      // Route by file size: >= 10MB → backend API (Google Drive), < 10MB → Supabase Storage
+      if (shouldUseBackendStorage(file)) {
+        try {
+          console.log(`Uploading large file (${(file.size / 1024 / 1024).toFixed(2)} MB) via backend...`);
+          setUploadProgress(30);
+          const result = await uploadToStorage(file, user.id);
+          finalFilePath = result.fileUrl;
+          console.log(`Uploaded to ${result.storageType}: ${finalFilePath}`);
+        } catch (err) {
+          console.warn('Backend upload failed, falling back to Supabase:', err);
+          // Fallback to Supabase Storage
+          const { error: uploadError } = await supabase.storage
+            .from('documents')
+            .upload(filePath, file);
+          if (uploadError) {
+            throw new Error(`Lỗi tải file: ${uploadError.message}`);
+          }
+        }
+      } else {
+        // Upload small files directly to Supabase Storage
+        setUploadProgress(40);
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file);
+
+        if (uploadError) {
+          throw new Error(`Lỗi tải file: ${uploadError.message}`);
+        }
+      }
+
+      setUploadProgress(70);
+
+      // Create document record in database
+      const { error: insertError } = await supabase.from('documents').insert({
+        user_id: user.id,
+        subject_id: selectedSubject,
+        name: title || file.name,
+        description: description || null,
+        file_path: finalFilePath,
+        file_type: fileExt,
+        file_size: file.size,
       });
 
-      clearInterval(progressInterval);
+      if (insertError) {
+        throw new Error(`Lỗi lưu thông tin: ${insertError.message}`);
+      }
+
       setUploadProgress(100);
       setStatus('success');
 

@@ -9,13 +9,6 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../auth.service';
 
-/**
- * Guard that validates Supabase JWT tokens using Supabase's own auth.getUser() API.
- * This is more reliable than local JWT verification because:
- * 1. No need to manage JWT_SECRET manually
- * 2. Automatically handles token expiration and revocation
- * 3. Works with all Supabase auth methods (email, OAuth, etc.)
- */
 @Injectable()
 export class SupabaseGuard implements CanActivate {
   private supabase: SupabaseClient;
@@ -58,11 +51,24 @@ export class SupabaseGuard implements CanActivate {
         throw new UnauthorizedException('Invalid or expired token');
       }
 
-      // Validate/sync user in our database
-      const user = await this.authService.validateUser(supabaseUser.id);
+      // Try to validate/sync user in our local database (Prisma)
+      // If Prisma is not configured, fall back to Supabase user data
+      let user: any = null;
+      try {
+        user = await this.authService.validateUser(supabaseUser.id);
+      } catch (prismaError) {
+        this.logger.warn(`Prisma validation skipped (DB may not be configured): ${prismaError}`);
+        // Fallback: create a user-like object from Supabase data
+        user = {
+          id: supabaseUser.id,
+          email: supabaseUser.email,
+          name: supabaseUser.user_metadata?.name || supabaseUser.user_metadata?.full_name,
+          avatarUrl: supabaseUser.user_metadata?.avatar_url,
+        };
+      }
 
       if (!user) {
-        throw new UnauthorizedException('User not found in database');
+        throw new UnauthorizedException('User not found');
       }
 
       // Attach user to request for downstream handlers

@@ -9,8 +9,10 @@ async function getAuthToken(): Promise<string> {
     data: { session },
   } = await supabase.auth.getSession();
   if (!session?.access_token) {
+    console.error('[API] No session or access_token found. User may not be logged in.');
     throw new Error('Not authenticated');
   }
+  console.log('[API] Got access token (length:', session.access_token.length, ')');
   return session.access_token;
 }
 
@@ -27,6 +29,9 @@ async function apiFetch(
       ...options.headers,
     },
   });
+  if (!res.ok) {
+    console.error(`[API] ${options.method || 'GET'} ${path} → ${res.status} ${res.statusText}`);
+  }
   return res;
 }
 
